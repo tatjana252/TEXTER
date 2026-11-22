@@ -79,11 +79,44 @@ export function nodeTemplates(events) {
   ])
 }
 
-export function linkTemplates() {
+/**
+ * A mapping link has no attribution of its own: it is shown as its relationship's attribution,
+ * plus the direction (domain => co-domain), bounds and role of this mapping.
+ */
+function mappingDetails(link) {
+  const model = link.diagram.model
+  const relationship = model.findNodeDataForKey(link.data.from)
+  const inverse = model.linkDataArray.find((l) => l.from === link.data.from && l.category === 'mapping' && l !== link.data)
+  const domain = model.findNodeDataForKey(link.data.to)?.text
+  const coDomain = model.findNodeDataForKey(inverse?.to)?.text
+  return {
+    ...relationship,
+    key: `${relationship.key}:${link.data.to}`,
+    category: 'mapping',
+    relationshipCategory: relationship.category,
+    relationshipName: relationship.text,
+    text: `${domain} ⇒ ${coDomain}`,
+    bounds: link.data.text,
+    role: link.data.role,
+    isAssumed: link.data.isAssumed,
+    // Assumed bounds are drawn red on the diagram, so the details use the same color.
+    confidenceLevel: link.data.isAssumed ? 'Low' : relationship.confidenceLevel
+  }
+}
+
+export function linkTemplates(events) {
   // Relationship -> entity; the label is the mapping entity => other entity, written next to the diamond.
-  const mapping = new go.Link({ selectable: false, layerName: 'Background' }).add(
+  const mapping = new go.Link({
+    selectable: false,
+    layerName: 'Background',
+    cursor: 'pointer',
+    mouseEnter: (e, link) => events.onHover(mappingDetails(link)),
+    mouseLeave: () => events.onHover(null)
+  }).add(
     new go.Shape({ stroke: LINE, strokeWidth: 1.5 }),
-    new go.Panel('Vertical', { segmentIndex: 0, segmentFraction: 0.35, segmentOffset: new go.Point(0, -14) }).add(
+    // Wide transparent stroke: easier to hit than the 1.5px line.
+    new go.Shape({ stroke: 'transparent', strokeWidth: 10 }),
+    new go.Panel('Vertical', { segmentIndex: 0, segmentFraction: 0.35, segmentOffset: new go.Point(0, -14), background: 'transparent' }).add(
       new go.TextBlock({ font: 'bold 13px "Segoe UI", system-ui, sans-serif' })
         .bind('text', '', (d) => (d.isAssumed ? `${d.text}?` : d.text))
         .bind('stroke', 'isAssumed', (a) => (a ? ASSUMED : '#333')),

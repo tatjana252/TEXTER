@@ -20,7 +20,7 @@ onMounted(() => {
     'undoManager.isEnabled': true,
     'animationManager.isEnabled': false,
     nodeTemplateMap: nodeTemplates({ onHover: (data) => emit('hover', data) }),
-    linkTemplateMap: linkTemplates()
+    linkTemplateMap: linkTemplates({ onHover: (data) => emit('hover', data) })
   })
 
   diagram.addDiagramListener('ChangedSelection', () => {
