@@ -8,3 +8,6 @@ export const CONFIDENCE = {
 export const CONFIDENCE_ORDER = ['High', 'Medium', 'Low']
 
 export const colorsFor = (level) => CONFIDENCE[level] ?? CONFIDENCE.Low
+
+/** Same thresholds as the backend defaults (appsettings: Confidence). */
+export const levelFor = (confidence) => (confidence >= 0.8 ? 'High' : confidence >= 0.5 ? 'Medium' : 'Low')

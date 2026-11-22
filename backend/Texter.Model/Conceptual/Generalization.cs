@@ -5,5 +5,11 @@ namespace Texter.Model.Conceptual
     {
         public string SuperEntityId { get; set; } = default!;
         public List<string> SubEntityIds { get; set; } = new();
+
+        /// <summary>An instance belongs to at most one subtype.</summary>
+        public bool IsDisjoint { get; set; }
+
+        /// <summary>Every instance belongs to some subtype.</summary>
+        public bool IsTotal { get; set; }
     }
 }

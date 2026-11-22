@@ -12,6 +12,13 @@ async function post(url, body) {
 }
 
 export const texterApi = {
-  /** Requirements text -> { model, diagram } */
-  extractConceptualModel: (text) => post('/api/conceptualmodel/extract', { text })
+  /** Requirements text -> { model, diagram, sentences, notes } */
+  extractConceptualModel: (text) => post('/api/conceptualmodel/extract', { text }),
+
+  /** Conceptual model -> { code, errors } */
+  generateErld: (model, modelName, includeAttribution) =>
+    post('/api/erld/generate', { model, modelName, includeAttribution }),
+
+  /** ERLD source -> { code, errors } */
+  validateErld: (code) => post('/api/erld/validate', { code })
 }

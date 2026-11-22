@@ -54,7 +54,7 @@ namespace Texter.Tests
         [Fact]
         public async Task Relationship_with_assumed_bounds_is_capped_at_medium()
         {
-            var manage = (await ExtractSampleAsync()).Model.Relationships.Single(r => r.Name == "manage");
+            var manage = (await ExtractSampleAsync()).Model.Relationships.Single(r => r.Name == "Manages");
 
             Assert.Equal(0.85, manage.Confidence);
             Assert.True(manage.Mapping2.IsAssumed);
@@ -67,7 +67,7 @@ namespace Texter.Tests
             var model = (await ExtractSampleAsync()).Model;
             var ids = model.Entities.ToDictionary(e => e.Name, e => e.Id);
 
-            var has = model.Relationships.Single(r => r.Name == "has");
+            var has = model.Relationships.Single(r => r.Name == "Has");
             Assert.Equal(ids["Book"], has.Mapping1.DomainEntityId);
             Assert.Equal("(0,M)", has.Mapping1.ToString());
             Assert.Equal("(1,1)", has.Mapping2.ToString());

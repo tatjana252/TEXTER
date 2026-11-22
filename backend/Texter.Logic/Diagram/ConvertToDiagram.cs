@@ -33,7 +33,7 @@ namespace Texter.Logic.Diagram
                         To = mapping.DomainEntityId,
                         Category = LinkCategory.Mapping,
                         Text = mapping.ToString(),
-                        MappingName = mapping.Name,
+                        Role = mapping.Role,
                         IsAssumed = mapping.IsAssumed
                     });
                 }
@@ -57,7 +57,8 @@ namespace Texter.Logic.Diagram
             {
                 var node = NodeFor(attribute, NodeCategory.Attribute);
                 node.IsIdentifier = attribute.IsIdentifier;
-                node.Type = attribute.Type;
+                node.Type = attribute.Length is { } length ? $"{attribute.Type}({length})" : attribute.Type;
+                if (attribute.IsMultivalued) node.Type += "[]";
                 diagram.Nodes.Add(node);
                 diagram.Links.Add(new Link { From = ownerId, To = attribute.Id, Category = LinkCategory.Attribute });
             }

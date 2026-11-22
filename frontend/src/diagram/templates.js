@@ -88,8 +88,8 @@ export function linkTemplates() {
         .bind('text', '', (d) => (d.isAssumed ? `${d.text}?` : d.text))
         .bind('stroke', 'isAssumed', (a) => (a ? ASSUMED : '#333')),
       new go.TextBlock({ font: 'italic 11px "Segoe UI", system-ui, sans-serif', stroke: '#6a737d' })
-        .bind('text', 'mappingName')
-        .bind('visible', 'mappingName', (n) => !!n)
+        .bind('text', 'role')
+        .bind('visible', 'role', (n) => !!n)
     )
   )
 

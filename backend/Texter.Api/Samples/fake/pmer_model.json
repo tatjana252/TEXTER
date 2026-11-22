@@ -2,23 +2,16 @@
  "entities": [
   {
    "name": "Member",
+   "displayName": null,
    "kind": "normal",
-   "attribution": {
-    "sentenceIds": [
-     "S1",
-     "S2"
-    ],
-    "evidence": [
-     "The library keeps track of its members"
-    ],
-    "confidence": 0.95,
-    "rationale": "Members are explicitly tracked and described."
-   },
    "attributes": [
     {
      "name": "membershipNumber",
-     "type": "String",
+     "type": "string",
+     "length": 10,
      "isIdentifier": true,
+     "isMultivalued": false,
+     "isOptional": false,
      "attribution": {
       "sentenceIds": [
        "S2"
@@ -32,8 +25,11 @@
     },
     {
      "name": "name",
-     "type": "String",
+     "type": "string",
+     "length": 50,
      "isIdentifier": false,
+     "isMultivalued": false,
+     "isOptional": false,
      "attribution": {
       "sentenceIds": [
        "S2"
@@ -47,8 +43,11 @@
     },
     {
      "name": "phoneNumber",
-     "type": "String",
+     "type": "string",
+     "length": 20,
      "isIdentifier": false,
+     "isMultivalued": true,
+     "isOptional": false,
      "attribution": {
       "sentenceIds": [
        "S2"
@@ -60,27 +59,31 @@
       "rationale": "Multivalued; in PMER it could be a weak entity instead of an attribute."
      }
     }
-   ]
+   ],
+   "attribution": {
+    "sentenceIds": [
+     "S1",
+     "S2"
+    ],
+    "evidence": [
+     "The library keeps track of its members"
+    ],
+    "confidence": 0.95,
+    "rationale": "Members are explicitly tracked and described."
+   }
   },
   {
    "name": "Book",
+   "displayName": null,
    "kind": "normal",
-   "attribution": {
-    "sentenceIds": [
-     "S3",
-     "S4"
-    ],
-    "evidence": [
-     "The library owns books"
-    ],
-    "confidence": 0.95,
-    "rationale": "Books are explicitly owned and described."
-   },
    "attributes": [
     {
      "name": "isbn",
-     "type": "String",
+     "type": "char",
+     "length": 13,
      "isIdentifier": true,
+     "isMultivalued": false,
+     "isOptional": false,
      "attribution": {
       "sentenceIds": [
        "S4"
@@ -94,8 +97,11 @@
     },
     {
      "name": "title",
-     "type": "String",
+     "type": "string",
+     "length": 100,
      "isIdentifier": false,
+     "isMultivalued": false,
+     "isOptional": false,
      "attribution": {
       "sentenceIds": [
        "S4"
@@ -109,8 +115,11 @@
     },
     {
      "name": "publicationYear",
-     "type": "Int",
+     "type": "int",
+     "length": null,
      "isIdentifier": false,
+     "isMultivalued": false,
+     "isOptional": false,
      "attribution": {
       "sentenceIds": [
        "S4"
@@ -124,8 +133,11 @@
     },
     {
      "name": "author",
-     "type": "String",
+     "type": "string",
+     "length": 100,
      "isIdentifier": false,
+     "isMultivalued": true,
+     "isOptional": false,
      "attribution": {
       "sentenceIds": [
        "S4"
@@ -137,28 +149,31 @@
       "rationale": "Several authors suggest a separate entity rather than an attribute."
      }
     }
-   ]
+   ],
+   "attribution": {
+    "sentenceIds": [
+     "S3",
+     "S4"
+    ],
+    "evidence": [
+     "The library owns books"
+    ],
+    "confidence": 0.95,
+    "rationale": "Books are explicitly owned and described."
+   }
   },
   {
    "name": "Copy",
+   "displayName": null,
    "kind": "weak",
-   "attribution": {
-    "sentenceIds": [
-     "S5",
-     "S6"
-    ],
-    "evidence": [
-     "the library may have many copies",
-     "identified by its copy number within the book"
-    ],
-    "confidence": 0.85,
-    "rationale": "A copy is identified only within its book, so it is weak."
-   },
    "attributes": [
     {
      "name": "copyNumber",
-     "type": "Int",
+     "type": "int",
+     "length": null,
      "isIdentifier": true,
+     "isMultivalued": false,
+     "isOptional": false,
      "attribution": {
       "sentenceIds": [
        "S6"
@@ -170,11 +185,40 @@
       "rationale": "Partial identifier of the weak entity."
      }
     }
-   ]
+   ],
+   "attribution": {
+    "sentenceIds": [
+     "S5",
+     "S6"
+    ],
+    "evidence": [
+     "the library may have many copies",
+     "identified by its copy number within the book"
+    ],
+    "confidence": 0.85,
+    "rationale": "A copy is identified only within its book, so it is weak."
+   }
   },
   {
    "name": "Employee",
+   "displayName": null,
    "kind": "normal",
+   "attributes": [
+    {
+     "name": "employeeId",
+     "type": "int",
+     "length": null,
+     "isIdentifier": true,
+     "isMultivalued": false,
+     "isOptional": false,
+     "attribution": {
+      "sentenceIds": [],
+      "evidence": [],
+      "confidence": 0.2,
+      "rationale": "No identifier is given in the text; introduced as an assumption."
+     }
+    }
+   ],
    "attribution": {
     "sentenceIds": [
      "S9",
@@ -185,24 +229,13 @@
     ],
     "confidence": 0.9,
     "rationale": "Employees are explicitly mentioned."
-   },
-   "attributes": [
-    {
-     "name": "employeeId",
-     "type": "Int",
-     "isIdentifier": true,
-     "attribution": {
-      "sentenceIds": [],
-      "evidence": [],
-      "confidence": 0.2,
-      "rationale": "No identifier is given in the text; introduced as an assumption."
-     }
-    }
-   ]
+   }
   },
   {
    "name": "Librarian",
+   "displayName": null,
    "kind": "normal",
+   "attributes": [],
    "attribution": {
     "sentenceIds": [
      "S10"
@@ -212,12 +245,13 @@
     ],
     "confidence": 0.85,
     "rationale": "Subtype of employee."
-   },
-   "attributes": []
+   }
   },
   {
    "name": "Technician",
+   "displayName": null,
    "kind": "normal",
+   "attributes": [],
    "attribution": {
     "sentenceIds": [
      "S10"
@@ -227,28 +261,20 @@
     ],
     "confidence": 0.85,
     "rationale": "Subtype of employee."
-   },
-   "attributes": []
+   }
   },
   {
    "name": "Section",
+   "displayName": null,
    "kind": "normal",
-   "attribution": {
-    "sentenceIds": [
-     "S11",
-     "S12"
-    ],
-    "evidence": [
-     "Each librarian manages a section"
-    ],
-    "confidence": 0.65,
-    "rationale": "Managed and located, but no own properties besides floor."
-   },
    "attributes": [
     {
      "name": "floor",
-     "type": "Int",
+     "type": "int",
+     "length": null,
      "isIdentifier": false,
+     "isMultivalued": false,
+     "isOptional": false,
      "attribution": {
       "sentenceIds": [
        "S12"
@@ -260,15 +286,26 @@
       "rationale": "Floor could be an attribute or a separate entity."
      }
     }
-   ]
+   ],
+   "attribution": {
+    "sentenceIds": [
+     "S11",
+     "S12"
+    ],
+    "evidence": [
+     "Each librarian manages a section"
+    ],
+    "confidence": 0.65,
+    "rationale": "Managed and located, but no own properties besides floor."
+   }
   }
  ],
  "relationships": [
   {
-   "name": "has",
-   "isWeak": true,
+   "name": "Has",
+   "displayName": null,
    "mapping1": {
-    "name": "may have",
+    "role": "copies",
     "domain": "Book",
     "coDomain": "Copy",
     "lowerBound": 0,
@@ -276,13 +313,14 @@
     "boundsStated": true
    },
    "mapping2": {
-    "name": "is identified within",
+    "role": "book",
     "domain": "Copy",
     "coDomain": "Book",
     "lowerBound": 1,
     "upperBound": 1,
     "boundsStated": true
    },
+   "isWeak": true,
    "attributes": [],
    "attribution": {
     "sentenceIds": [
@@ -297,10 +335,10 @@
    }
   },
   {
-   "name": "borrow",
-   "isWeak": false,
+   "name": "Borrows",
+   "displayName": "borrow",
    "mapping1": {
-    "name": "can borrow",
+    "role": "borrowedCopies",
     "domain": "Member",
     "coDomain": "Copy",
     "lowerBound": 0,
@@ -308,18 +346,22 @@
     "boundsStated": true
    },
    "mapping2": {
-    "name": "can be borrowed by",
+    "role": "borrowers",
     "domain": "Copy",
     "coDomain": "Member",
     "lowerBound": 0,
     "upperBound": -1,
     "boundsStated": true
    },
+   "isWeak": false,
    "attributes": [
     {
      "name": "loanDate",
-     "type": "Date",
+     "type": "date",
+     "length": null,
      "isIdentifier": false,
+     "isMultivalued": false,
+     "isOptional": false,
      "attribution": {
       "sentenceIds": [
        "S8"
@@ -333,8 +375,11 @@
     },
     {
      "name": "returnDate",
-     "type": "Date",
+     "type": "date",
+     "length": null,
      "isIdentifier": false,
+     "isMultivalued": false,
+     "isOptional": true,
      "attribution": {
       "sentenceIds": [
        "S8"
@@ -360,10 +405,10 @@
    }
   },
   {
-   "name": "manage",
-   "isWeak": false,
+   "name": "Manages",
+   "displayName": "manages",
    "mapping1": {
-    "name": "manages",
+    "role": "section",
     "domain": "Librarian",
     "coDomain": "Section",
     "lowerBound": 1,
@@ -371,13 +416,14 @@
     "boundsStated": true
    },
    "mapping2": {
-    "name": null,
+    "role": "manager",
     "domain": "Section",
     "coDomain": "Librarian",
     "lowerBound": 0,
     "upperBound": 1,
     "boundsStated": false
    },
+   "isWeak": false,
    "attributes": [],
    "attribution": {
     "sentenceIds": [
@@ -398,6 +444,8 @@
     "Librarian",
     "Technician"
    ],
+   "isDisjoint": true,
+   "isTotal": true,
    "attribution": {
     "sentenceIds": [
      "S10"

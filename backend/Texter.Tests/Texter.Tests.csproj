@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Texter.Logic\Texter.Logic.csproj" />
+    <ProjectReference Include="..\Texter.Erl\Texter.Erl.csproj" />
   </ItemGroup>
 
   <ItemGroup>

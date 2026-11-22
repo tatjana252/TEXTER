@@ -68,6 +68,7 @@ namespace Texter.Logic.Extraction
                     {
                         Id = $"E{i + 1}",
                         Name = e.Name,
+                        DisplayName = e.DisplayName,
                         Kind = e.Kind == "weak" ? EntityKind.Weak : EntityKind.Normal
                     }, e.Attribution);
                     entity.Attributes = Attributes(entity.Id, e.Attributes);
@@ -90,6 +91,7 @@ namespace Texter.Logic.Extraction
                     {
                         Id = $"R{model.Relationships.Count + 1}",
                         Name = r.Name,
+                        DisplayName = r.DisplayName,
                         IsWeak = r.IsWeak,
                         Mapping1 = mapping1,
                         Mapping2 = mapping2
@@ -113,7 +115,9 @@ namespace Texter.Logic.Extraction
                         Id = $"G{model.Generalizations.Count + 1}",
                         Name = "IS-A",
                         SuperEntityId = superId,
-                        SubEntityIds = subIds
+                        SubEntityIds = subIds,
+                        IsDisjoint = g.IsDisjoint,
+                        IsTotal = g.IsTotal
                     }, g.Attribution));
                 }
 
@@ -126,7 +130,10 @@ namespace Texter.Logic.Extraction
                     Id = $"{ownerId}.A{i + 1}",
                     Name = a.Name,
                     Type = a.Type,
-                    IsIdentifier = a.IsIdentifier
+                    Length = a.Length,
+                    IsIdentifier = a.IsIdentifier,
+                    IsMultivalued = a.IsMultivalued,
+                    IsOptional = a.IsOptional
                 }, a.Attribution)).ToList();
 
             private Mapping? Mapping(LlmMapping m)
@@ -137,7 +144,7 @@ namespace Texter.Logic.Extraction
 
                 return new Mapping
                 {
-                    Name = m.Name,
+                    Role = m.Role,
                     DomainEntityId = domain,
                     CoDomainEntityId = coDomain,
                     LowerBound = m.LowerBound,

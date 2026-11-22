@@ -17,9 +17,9 @@ namespace Texter.Model.GoJs
         [JsonPropertyName("text")]
         public string? Text { get; set; }
 
-        /// <summary>Mapping name, e.g. "borrows".</summary>
-        [JsonPropertyName("mappingName")]
-        public string? MappingName { get; set; }
+        /// <summary>Mapping role (navigation name), e.g. "copies".</summary>
+        [JsonPropertyName("role")]
+        public string? Role { get; set; }
 
         /// <summary>Bounds were assumed (no cue in the text).</summary>
         [JsonPropertyName("isAssumed")]

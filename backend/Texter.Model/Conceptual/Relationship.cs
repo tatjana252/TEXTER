@@ -6,6 +6,9 @@ namespace Texter.Model.Conceptual
     /// </summary>
     public class Relationship : ModelElement
     {
+        /// <summary>Name as written in the requirements, e.g. "radi na".</summary>
+        public string? DisplayName { get; set; }
+
         public Mapping Mapping1 { get; set; } = new();
         public Mapping Mapping2 { get; set; } = new();
 
@@ -20,7 +23,8 @@ namespace Texter.Model.Conceptual
     /// <summary>Mapping Domain => CoDomain with lower (DG) and upper (GG) bound.</summary>
     public class Mapping
     {
-        public string? Name { get; set; }
+        /// <summary>Navigation name from the domain to the co-domain, e.g. radnik.radnoMesto, radnoMesto.radnici.</summary>
+        public string? Role { get; set; }
         public string DomainEntityId { get; set; } = default!;
         public string CoDomainEntityId { get; set; } = default!;
         public int LowerBound { get; set; }

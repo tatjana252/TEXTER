@@ -6,7 +6,7 @@ atribucijom (svaki element vezan za tekst iz kog je nastao) i procenom sigurnost
 | Korak | Status |
 |---|---|
 | 1. Tekst → PMER dijagram sa atribucijom | ✅ |
-| 2. PMER → ERLD | ⏳ |
+| 2. PMER → ERLD (generisanje, izmena, provera sintakse) | ✅ |
 | 3. ERLD → DDL (SQL Server, MongoDB) | ⏳ |
 | 4. ERLQ upiti nad fizičkim skladištem | ⏳ |
 
@@ -26,7 +26,10 @@ backend/                     .NET 10
       Resources/             system prompt (.md) i JSON šema odgovora
     Traceability/            SentenceSplitter, EvidenceLocator (citat → pozicija), ConfidenceClassifier
     Diagram/                 ConvertToDiagram (PMER DER notacija)
+    Erld/                    ErldGenerator (PMER model → ERLD kod)
+  Texter.Erl/                ANTLR gramatike ERL jezika (Grammar/ERLD.g4, ERLCommon.g4) i parser
   Texter.Api/                POST /api/conceptualmodel/extract → { model, diagram, sentences, notes }
+                             POST /api/erld/generate, /api/erld/validate → { code, errors }
   Texter.Tests/              xUnit
 frontend/                    Vue 3 + Vite + GoJS
 ```
@@ -44,7 +47,21 @@ frontend/                    Vue 3 + Vite + GoJS
    Pragovi su u `appsettings.json` (`Confidence`).
 5. Na dijagramu: prelaz mišem označava tekst i rečenice elementa; pretpostavljene granice su crvene sa `?`.
 
+## Korak 2: PMER → ERLD
+
+- `ErldGenerator` piše ERLD: kratki zapis gde može, dugi zapis za identifikujuće veze i za veze čije je neko
+  preslikavanje pretpostavljeno (`@assumed`), agregacije za veze sa atributima, `specialization` za IS-A,
+  `on delete cascade` od vlasnika ka slabom entitetu. Imena koja su ključne reči idu pod navodnike.
+- Atribucija se čuva u jeziku: `@source(S2, S4) @confidence(0.95)` ispred deklaracija, atributa i preslikavanja
+  (gramatika v0.3). U editoru, prelaz preko reda označava rečenice zahteva iz kojih je element nastao.
+- Svaki generisani ili ručno izmenjeni ERLD proverava se parserom generisanim iz `ERLD.g4`.
+- `ERLCommon.g4` (izrazi, imena, leksika) je rekonstruisan na osnovu ERLD gramatike i primera
+  `Samples/preduzece.erld`, koji se parsira bez grešaka – zameniti originalom ako se razlikuje.
+
 ## Pokretanje
+
+Build backenda generiše C# parser iz gramatike (Antlr4BuildTasks), pa je potrebna **Java** (11+).
+
 
 Backend (OpenAI ključ preko user-secrets, ne u appsettings):
 

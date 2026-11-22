@@ -1,0 +1,138 @@
+// Primer iz nacrta (19.3.2025): radnici, službe, radna mesta, projekti, isplate.
+// Prikazuje oba zapisa: kratki (uz atribute i veze) i dugi
+// (imenovana ograničenja i pravila integriteta na kraju fajla).
+//
+// Konvencija navigacije: iz agregacije se do učesnika dolazi imenom
+// entiteta malim slovom (radnik, projekat), a iz entiteta do instanci
+// agregacije imenom agregacije malim slovom (ucestvuje).
+
+model Preduzece;
+
+// ---------- rečnik podataka ----------
+
+domain Sifra   = int > 0;
+domain Naziv22 = string(22) like '[A-Ž]%';
+
+enum VrstaIsplate { PLATA, REGRES, BONUS }
+
+// ---------- entiteti ----------
+
+entity RadnoMesto as "Radno mesto" {
+    key rmId : Sifra;
+    naziv    : Naziv22;
+    unique (naziv);
+}
+
+entity Sluzba as "Služba" {
+    key sId : Sifra;
+    naziv   : string(22);
+}
+
+entity Radnik {
+    key rId : Sifra auto(100, 2);          // 100, 102, 104 ...
+    ime     : Naziv22;
+
+    check najviseTriIsplateDnevno:
+        forall d in isplate.datum : count(isplate[datum = d]) <= 3
+        with err 'Radnik može imati najviše tri isplate u jednom danu.';
+}
+
+entity Projekat {
+    key pId : Sifra;
+    naziv   : char(6) check (matches(value, '^PR[0-9A-Za-z]{4}$'));
+    budzet  : money > 0
+              on update check (abs(new.budzet - old.budzet) <= 0.12 * old.budzet)
+              with err 'Budžet se ne može promeniti za više od 12%.';
+    derived klasa : tinyint =
+        if budzet <= 1000 then 3
+        else if budzet <= 5000 then 2
+        else 1;
+}
+
+// ID-zavisan (slab) entitet: identifikuje se radnikom i rednim brojem isplate
+weak entity Isplata {
+    partial key iId : int;
+    datum : date;
+    iznos : money > 0;
+    vrsta : VrstaIsplate;
+}
+
+// ---------- veze: kratki zapis ----------
+
+relationship RadiNa as "radi na":
+    Radnik.radnoMesto [1..1] <-> RadnoMesto.radnici [0..*];
+
+relationship RadiU as "radi u":
+    Radnik.sluzba [1..1] <-> Sluzba.radnici [0..*];
+
+// ---------- veza: dugi zapis ----------
+
+identifying relationship ImaIsplate {
+    Radnik  -> Isplata [0..*] as isplate on delete cascade;
+    Isplata -> Radnik  [1..1] as radnik;
+}
+
+// ---------- agregacije ----------
+
+aggregation Ucestvuje as "učestvuje na":
+    Radnik.projekti [0..*] <-> Projekat.ucesnici [0..*]
+{
+    key ucId : int auto(100, 1);
+    od : date;
+    do : date optional;
+
+    check trajanje: do is null or do >= od + 15 days;
+}
+
+aggregation Rukovodi {
+    Radnik   -> Projekat [0..*] as projektiKojimaRukovodi;
+    Projekat -> Radnik   [0..*] as rukovodioci;
+
+    key rkId : int auto(100, 1);
+    datumImenovanja : date;
+}
+
+// ---------- ograničenja: dugi zapis ----------
+
+constraint MesecniLimitIsplata:
+    for each (r in Radnik)
+        forall i in r.isplate :
+            sum(r.isplate[year(datum) = year(i.datum) and month(datum) = month(i.datum)].iznos) <= 500;
+
+constraint RacunovodstvoNeUcestvuje:
+    for each (u in Ucestvuje) u.radnik.sluzba.naziv <> 'RAČUNOVODSTVO';
+
+constraint RukovodiSamoAkoUcestvuje:
+    for each (rk in Rukovodi) rk.projekat in rk.radnik.projekti;
+
+constraint RukovodilacJeSefIliNacelnik:
+    for each (rk in Rukovodi) rk.radnik.radnoMesto.naziv in ('ŠEF', 'NAČELNIK');
+
+// ---------- pravila integriteta ----------
+
+rule ProveraMesecnogLimita on Isplata for insert, update
+    where not MesecniLimitIsplata
+    do reject
+    with err 'Zbir isplata radniku u jednom mesecu ne sme preći 500 n.j.';
+
+rule ProveraRacunovodstva on Ucestvuje for insert, connect
+    where not RacunovodstvoNeUcestvuje
+    do reject
+    with err 'Radnici iz računovodstva ne mogu da učestvuju na projektima.';
+
+rule ProveraRukovodioca on Rukovodi for insert, update
+    where not (RukovodiSamoAkoUcestvuje and RukovodilacJeSefIliNacelnik)
+    do reject
+    with err 'Projektom rukovodi radnik koji na njemu učestvuje i radi kao šef ili načelnik.';
+
+// Strukturna pravila: ograničenja su izvedena iz donjih granica [1..1].
+// Bez ovih pravila podrazumevalo bi se restrict bez poruke.
+rule BrisanjeRadnogMesta on RadnoMesto for delete
+    where RadiNa
+    do restrict
+    with err 'Radno mesto ne može da se obriše dok na njemu ima zaposlenih.';
+
+rule BrisanjeSluzbe on Sluzba for delete
+    where RadiU
+    do restrict
+    with warn 'Služba ima zaposlene; prvo ih rasporedite u drugu službu.';

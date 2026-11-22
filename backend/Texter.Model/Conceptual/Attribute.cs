@@ -5,7 +5,15 @@ namespace Texter.Model.Conceptual
         /// <summary>Part of the entity identifier (# on the diagram).</summary>
         public bool IsIdentifier { get; set; }
 
-        /// <summary>Predefined or semantic domain, e.g. String, Int, Date.</summary>
-        public string Type { get; set; } = "String";
+        /// <summary>ERLD built-in type: int, string, decimal, money, date, ...</summary>
+        public string Type { get; set; } = "string";
+
+        /// <summary>Length for string / char.</summary>
+        public int? Length { get; set; }
+
+        /// <summary>Several values per instance (string(20)[] in ERLD).</summary>
+        public bool IsMultivalued { get; set; }
+
+        public bool IsOptional { get; set; }
     }
 }

@@ -10,6 +10,9 @@ namespace Texter.Model.Conceptual
     public class Entity : ModelElement
     {
         public EntityKind Kind { get; set; }
+
+        /// <summary>Name as written in the requirements, e.g. "Radno mesto".</summary>
+        public string? DisplayName { get; set; }
         public List<Attribute> Attributes { get; set; } = new();
     }
 }
