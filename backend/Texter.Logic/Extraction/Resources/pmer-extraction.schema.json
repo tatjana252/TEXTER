@@ -1,264 +1,166 @@
 {
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "entities",
-    "relationships",
-    "generalizations",
-    "notes"
-  ],
+  "required": ["facts", "entities", "relationships", "generalizations", "notes"],
   "properties": {
+    "facts": {
+      "description": "Step 1: the facts the source states, each read from its sentences. The model is built only from these facts.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/fact" }
+    },
     "entities": {
       "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "name",
-          "displayName",
-          "kind",
-          "attributes",
-          "attribution"
-        ],
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "displayName": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "normal",
-              "weak"
-            ]
-          },
-          "attributes": {
-            "type": "array",
-            "items": {
-              "$ref": "#/$defs/attribute"
-            }
-          },
-          "attribution": {
-            "$ref": "#/$defs/attribution"
-          }
-        }
-      }
+      "items": { "$ref": "#/$defs/entity" }
     },
     "relationships": {
       "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "name",
-          "displayName",
-          "mapping1",
-          "mapping2",
-          "isWeak",
-          "attributes",
-          "attribution"
-        ],
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "displayName": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "mapping1": {
-            "$ref": "#/$defs/mapping"
-          },
-          "mapping2": {
-            "$ref": "#/$defs/mapping"
-          },
-          "isWeak": {
-            "type": "boolean"
-          },
-          "attributes": {
-            "type": "array",
-            "items": {
-              "$ref": "#/$defs/attribute"
-            }
-          },
-          "attribution": {
-            "$ref": "#/$defs/attribution"
-          }
-        }
-      }
+      "items": { "$ref": "#/$defs/relationship" }
     },
     "generalizations": {
       "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "superEntity",
-          "subEntities",
-          "isDisjoint",
-          "isTotal",
-          "attribution"
-        ],
-        "properties": {
-          "superEntity": {
-            "type": "string"
-          },
-          "subEntities": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "isDisjoint": {
-            "type": "boolean"
-          },
-          "isTotal": {
-            "type": "boolean"
-          },
-          "attribution": {
-            "$ref": "#/$defs/attribution"
-          }
-        }
-      }
+      "items": { "$ref": "#/$defs/generalization" }
     },
     "notes": {
+      "description": "Ambiguities or missing information worth asking the analyst about.",
       "type": "array",
-      "items": {
-        "type": "string"
-      }
+      "items": { "type": "string" }
     }
   },
   "$defs": {
+    "fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "sentenceIds", "statement"],
+      "properties": {
+        "id": {
+          "description": "Fact identifier: F1, F2, ... in order.",
+          "type": "string",
+          "pattern": "^F[1-9][0-9]*$"
+        },
+        "sentenceIds": {
+          "description": "Source sentence IDs this fact is read from.",
+          "type": "array",
+          "items": { "type": "string", "pattern": "^S[1-9][0-9]*$" }
+        },
+        "statement": {
+          "description": "One atomic fact about the domain, in the words of the text, not in modeling vocabulary.",
+          "type": "string"
+        }
+      }
+    },
+    "evidence": {
+      "description": "IDs of the facts this element or decision rests on, for example F2. Empty when no stated fact carries it.",
+      "type": "array",
+      "items": { "type": "string", "pattern": "^F[1-9][0-9]*$" }
+    },
+    "confidence": {
+      "description": "stated (a cited fact names it), inferred (a modeling decision read out of the facts) or assumed (no fact supports it; evidence is empty).",
+      "type": "string",
+      "enum": ["stated", "inferred", "assumed"]
+    },
+    "rationale": {
+      "description": "One short clause on why the element takes this form, with the heuristic code in parentheses, e.g. 'no identity outside its owner (HN6)'. Empty when the element is stated outright.",
+      "type": "string"
+    },
+    "entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence", "name", "displayName", "isWeak", "ownerEntity", "weakEvidence", "attributes", "confidence", "rationale"],
+      "properties": {
+        "evidence": { "$ref": "#/$defs/evidence" },
+        "name": { "type": "string" },
+        "displayName": { "type": ["string", "null"] },
+        "isWeak": { "type": "boolean" },
+        "ownerEntity": {
+          "description": "Identifying owner of a weak entity; empty string when not weak.",
+          "type": "string"
+        },
+        "weakEvidence": { "$ref": "#/$defs/evidence" },
+        "attributes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/attribute" }
+        },
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "rationale": { "$ref": "#/$defs/rationale" }
+      }
+    },
     "attribute": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "name",
-        "type",
-        "length",
-        "isIdentifier",
-        "isMultivalued",
-        "isOptional",
-        "attribution"
-      ],
+      "required": ["evidence", "name", "type", "length", "isIdentifier", "isMultivalued", "isOptional", "confidence", "rationale"],
       "properties": {
-        "name": {
-          "type": "string"
-        },
+        "evidence": { "$ref": "#/$defs/evidence" },
+        "name": { "type": "string" },
         "type": {
           "type": "string",
-          "enum": [
-            "tinyint",
-            "smallint",
-            "int",
-            "long",
-            "decimal",
-            "money",
-            "float",
-            "bool",
-            "char",
-            "string",
-            "text",
-            "date",
-            "time",
-            "datetime",
-            "uuid"
-          ]
+          "enum": ["tinyint", "smallint", "int", "long", "decimal", "money", "float", "bool", "char", "string", "text", "date", "time", "datetime", "uuid"]
         },
         "length": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "description": "Length for string/char, otherwise null."
+          "description": "Length for string/char, otherwise null.",
+          "type": ["integer", "null"]
         },
-        "isIdentifier": {
-          "type": "boolean"
+        "isIdentifier": { "type": "boolean" },
+        "isMultivalued": { "type": "boolean" },
+        "isOptional": { "type": "boolean" },
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "rationale": { "$ref": "#/$defs/rationale" }
+      }
+    },
+    "relationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence", "name", "displayName", "mapping1", "mapping2", "isIdentifying", "isAggregation", "aggregationEvidence", "attributes", "confidence", "rationale"],
+      "properties": {
+        "evidence": { "$ref": "#/$defs/evidence" },
+        "name": { "type": "string" },
+        "displayName": { "type": ["string", "null"] },
+        "mapping1": { "$ref": "#/$defs/mapping" },
+        "mapping2": { "$ref": "#/$defs/mapping" },
+        "isIdentifying": { "type": "boolean" },
+        "isAggregation": { "type": "boolean" },
+        "aggregationEvidence": { "$ref": "#/$defs/evidence" },
+        "attributes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/attribute" }
         },
-        "isMultivalued": {
-          "type": "boolean"
-        },
-        "isOptional": {
-          "type": "boolean"
-        },
-        "attribution": {
-          "$ref": "#/$defs/attribution"
-        }
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "rationale": { "$ref": "#/$defs/rationale" }
       }
     },
     "mapping": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "role",
-        "domain",
-        "coDomain",
-        "lowerBound",
-        "upperBound",
-        "boundsStated"
-      ],
+      "required": ["fromEntity", "toEntity", "role", "lowerBound", "upperBound", "boundsStated"],
       "properties": {
+        "fromEntity": { "type": "string" },
+        "toEntity": { "type": "string" },
         "role": {
-          "type": "string",
-          "description": "camelCase navigation name from domain to coDomain, plural when upperBound is many."
-        },
-        "domain": {
+          "description": "camelCase navigation name from fromEntity to toEntity, plural when upperBound is many.",
           "type": "string"
         },
-        "coDomain": {
-          "type": "string"
-        },
-        "lowerBound": {
-          "type": "integer",
-          "enum": [
-            0,
-            1
-          ]
-        },
+        "lowerBound": { "type": "integer", "enum": [0, 1] },
         "upperBound": {
-          "type": "integer",
-          "description": "-1 for M (many), otherwise a positive integer"
+          "description": "-1 for M (many), otherwise a positive integer.",
+          "type": "integer"
         },
-        "boundsStated": {
-          "type": "boolean"
-        }
+        "boundsStated": { "type": "boolean" }
       }
     },
-    "attribution": {
+    "generalization": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "sentenceIds",
-        "evidence",
-        "confidence",
-        "rationale"
-      ],
+      "required": ["evidence", "superEntity", "subEntities", "isDisjoint", "isTotal", "confidence", "rationale"],
       "properties": {
-        "sentenceIds": {
+        "evidence": { "$ref": "#/$defs/evidence" },
+        "superEntity": { "type": "string" },
+        "subEntities": {
           "type": "array",
-          "items": {
-            "type": "string"
-          }
+          "items": { "type": "string" }
         },
-        "evidence": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "confidence": {
-          "type": "number"
-        },
-        "rationale": {
-          "type": "string"
-        }
+        "isDisjoint": { "type": "boolean" },
+        "isTotal": { "type": "boolean" },
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "rationale": { "$ref": "#/$defs/rationale" }
       }
     }
   }

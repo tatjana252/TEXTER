@@ -1,465 +1,511 @@
 {
- "entities": [
-  {
-   "name": "Member",
-   "displayName": null,
-   "kind": "normal",
-   "attributes": [
+  "facts": [
     {
-     "name": "membershipNumber",
-     "type": "string",
-     "length": 10,
-     "isIdentifier": true,
-     "isMultivalued": false,
-     "isOptional": false,
-     "attribution": {
+      "id": "F1",
       "sentenceIds": [
-       "S2"
+        "S1"
       ],
-      "evidence": [
-       "a unique membership number"
-      ],
-      "confidence": 0.95,
-      "rationale": "Stated as unique, so it identifies a member."
-     }
+      "statement": "the library keeps track of its members"
     },
     {
-     "name": "name",
-     "type": "string",
-     "length": 50,
-     "isIdentifier": false,
-     "isMultivalued": false,
-     "isOptional": false,
-     "attribution": {
+      "id": "F2",
       "sentenceIds": [
-       "S2"
+        "S2"
       ],
-      "evidence": [
-       "a name"
-      ],
-      "confidence": 0.9,
-      "rationale": "Explicitly listed member property."
-     }
+      "statement": "each member has a unique membership number"
     },
     {
-     "name": "phoneNumber",
-     "type": "string",
-     "length": 20,
-     "isIdentifier": false,
-     "isMultivalued": true,
-     "isOptional": false,
-     "attribution": {
+      "id": "F3",
       "sentenceIds": [
-       "S2"
+        "S2"
       ],
-      "evidence": [
-       "one or more phone numbers"
-      ],
-      "confidence": 0.6,
-      "rationale": "Multivalued; in PMER it could be a weak entity instead of an attribute."
-     }
-    }
-   ],
-   "attribution": {
-    "sentenceIds": [
-     "S1",
-     "S2"
-    ],
-    "evidence": [
-     "The library keeps track of its members"
-    ],
-    "confidence": 0.95,
-    "rationale": "Members are explicitly tracked and described."
-   }
-  },
-  {
-   "name": "Book",
-   "displayName": null,
-   "kind": "normal",
-   "attributes": [
-    {
-     "name": "isbn",
-     "type": "char",
-     "length": 13,
-     "isIdentifier": true,
-     "isMultivalued": false,
-     "isOptional": false,
-     "attribution": {
-      "sentenceIds": [
-       "S4"
-      ],
-      "evidence": [
-       "A book is identified by its ISBN"
-      ],
-      "confidence": 0.97,
-      "rationale": "Explicit identifier."
-     }
+      "statement": "each member has a name"
     },
     {
-     "name": "title",
-     "type": "string",
-     "length": 100,
-     "isIdentifier": false,
-     "isMultivalued": false,
-     "isOptional": false,
-     "attribution": {
+      "id": "F4",
       "sentenceIds": [
-       "S4"
+        "S2"
       ],
-      "evidence": [
-       "a title"
-      ],
-      "confidence": 0.9,
-      "rationale": "Explicit property."
-     }
+      "statement": "each member has one or more phone numbers"
     },
     {
-     "name": "publicationYear",
-     "type": "int",
-     "length": null,
-     "isIdentifier": false,
-     "isMultivalued": false,
-     "isOptional": false,
-     "attribution": {
+      "id": "F5",
       "sentenceIds": [
-       "S4"
+        "S3"
       ],
-      "evidence": [
-       "a publication year"
-      ],
-      "confidence": 0.85,
-      "rationale": "Explicit property; Int type is inferred."
-     }
+      "statement": "the library owns books"
     },
     {
-     "name": "author",
-     "type": "string",
-     "length": 100,
-     "isIdentifier": false,
-     "isMultivalued": true,
-     "isOptional": false,
-     "attribution": {
+      "id": "F6",
       "sentenceIds": [
-       "S4"
+        "S4"
       ],
-      "evidence": [
-       "several authors"
-      ],
-      "confidence": 0.55,
-      "rationale": "Several authors suggest a separate entity rather than an attribute."
-     }
-    }
-   ],
-   "attribution": {
-    "sentenceIds": [
-     "S3",
-     "S4"
-    ],
-    "evidence": [
-     "The library owns books"
-    ],
-    "confidence": 0.95,
-    "rationale": "Books are explicitly owned and described."
-   }
-  },
-  {
-   "name": "Copy",
-   "displayName": null,
-   "kind": "weak",
-   "attributes": [
-    {
-     "name": "copyNumber",
-     "type": "int",
-     "length": null,
-     "isIdentifier": true,
-     "isMultivalued": false,
-     "isOptional": false,
-     "attribution": {
-      "sentenceIds": [
-       "S6"
-      ],
-      "evidence": [
-       "its copy number within the book"
-      ],
-      "confidence": 0.85,
-      "rationale": "Partial identifier of the weak entity."
-     }
-    }
-   ],
-   "attribution": {
-    "sentenceIds": [
-     "S5",
-     "S6"
-    ],
-    "evidence": [
-     "the library may have many copies",
-     "identified by its copy number within the book"
-    ],
-    "confidence": 0.85,
-    "rationale": "A copy is identified only within its book, so it is weak."
-   }
-  },
-  {
-   "name": "Employee",
-   "displayName": null,
-   "kind": "normal",
-   "attributes": [
-    {
-     "name": "employeeId",
-     "type": "int",
-     "length": null,
-     "isIdentifier": true,
-     "isMultivalued": false,
-     "isOptional": false,
-     "attribution": {
-      "sentenceIds": [],
-      "evidence": [],
-      "confidence": 0.2,
-      "rationale": "No identifier is given in the text; introduced as an assumption."
-     }
-    }
-   ],
-   "attribution": {
-    "sentenceIds": [
-     "S9",
-     "S10"
-    ],
-    "evidence": [
-     "Employees work in the library"
-    ],
-    "confidence": 0.9,
-    "rationale": "Employees are explicitly mentioned."
-   }
-  },
-  {
-   "name": "Librarian",
-   "displayName": null,
-   "kind": "normal",
-   "attributes": [],
-   "attribution": {
-    "sentenceIds": [
-     "S10"
-    ],
-    "evidence": [
-     "a librarian"
-    ],
-    "confidence": 0.85,
-    "rationale": "Subtype of employee."
-   }
-  },
-  {
-   "name": "Technician",
-   "displayName": null,
-   "kind": "normal",
-   "attributes": [],
-   "attribution": {
-    "sentenceIds": [
-     "S10"
-    ],
-    "evidence": [
-     "a technician"
-    ],
-    "confidence": 0.85,
-    "rationale": "Subtype of employee."
-   }
-  },
-  {
-   "name": "Section",
-   "displayName": null,
-   "kind": "normal",
-   "attributes": [
-    {
-     "name": "floor",
-     "type": "int",
-     "length": null,
-     "isIdentifier": false,
-     "isMultivalued": false,
-     "isOptional": false,
-     "attribution": {
-      "sentenceIds": [
-       "S12"
-      ],
-      "evidence": [
-       "A section is located on a floor"
-      ],
-      "confidence": 0.55,
-      "rationale": "Floor could be an attribute or a separate entity."
-     }
-    }
-   ],
-   "attribution": {
-    "sentenceIds": [
-     "S11",
-     "S12"
-    ],
-    "evidence": [
-     "Each librarian manages a section"
-    ],
-    "confidence": 0.65,
-    "rationale": "Managed and located, but no own properties besides floor."
-   }
-  }
- ],
- "relationships": [
-  {
-   "name": "Has",
-   "displayName": null,
-   "mapping1": {
-    "role": "copies",
-    "domain": "Book",
-    "coDomain": "Copy",
-    "lowerBound": 0,
-    "upperBound": -1,
-    "boundsStated": true
-   },
-   "mapping2": {
-    "role": "book",
-    "domain": "Copy",
-    "coDomain": "Book",
-    "lowerBound": 1,
-    "upperBound": 1,
-    "boundsStated": true
-   },
-   "isWeak": true,
-   "attributes": [],
-   "attribution": {
-    "sentenceIds": [
-     "S5",
-     "S6"
-    ],
-    "evidence": [
-     "For each book the library may have many copies"
-    ],
-    "confidence": 0.85,
-    "rationale": "Weak entity relationship between Book and Copy."
-   }
-  },
-  {
-   "name": "Borrows",
-   "displayName": "borrow",
-   "mapping1": {
-    "role": "borrowedCopies",
-    "domain": "Member",
-    "coDomain": "Copy",
-    "lowerBound": 0,
-    "upperBound": -1,
-    "boundsStated": true
-   },
-   "mapping2": {
-    "role": "borrowers",
-    "domain": "Copy",
-    "coDomain": "Member",
-    "lowerBound": 0,
-    "upperBound": -1,
-    "boundsStated": true
-   },
-   "isWeak": false,
-   "attributes": [
-    {
-     "name": "loanDate",
-     "type": "date",
-     "length": null,
-     "isIdentifier": false,
-     "isMultivalued": false,
-     "isOptional": false,
-     "attribution": {
-      "sentenceIds": [
-       "S8"
-      ],
-      "evidence": [
-       "the loan date"
-      ],
-      "confidence": 0.9,
-      "rationale": "Describes the loan itself."
-     }
+      "statement": "a book is identified by its ISBN"
     },
     {
-     "name": "returnDate",
-     "type": "date",
-     "length": null,
-     "isIdentifier": false,
-     "isMultivalued": false,
-     "isOptional": true,
-     "attribution": {
+      "id": "F7",
       "sentenceIds": [
-       "S8"
+        "S4"
       ],
-      "evidence": [
-       "the return date"
+      "statement": "a book has a title"
+    },
+    {
+      "id": "F8",
+      "sentenceIds": [
+        "S4"
       ],
-      "confidence": 0.9,
-      "rationale": "Describes the loan itself."
-     }
+      "statement": "a book has a publication year"
+    },
+    {
+      "id": "F9",
+      "sentenceIds": [
+        "S4"
+      ],
+      "statement": "a book has several authors"
+    },
+    {
+      "id": "F10",
+      "sentenceIds": [
+        "S5"
+      ],
+      "statement": "for each book the library may have many copies"
+    },
+    {
+      "id": "F11",
+      "sentenceIds": [
+        "S6"
+      ],
+      "statement": "a copy is identified by its copy number within the book"
+    },
+    {
+      "id": "F12",
+      "sentenceIds": [
+        "S7"
+      ],
+      "statement": "a member can borrow many copies"
+    },
+    {
+      "id": "F13",
+      "sentenceIds": [
+        "S7"
+      ],
+      "statement": "a copy can be borrowed by many members over time"
+    },
+    {
+      "id": "F14",
+      "sentenceIds": [
+        "S8"
+      ],
+      "statement": "for every loan the loan date is recorded"
+    },
+    {
+      "id": "F15",
+      "sentenceIds": [
+        "S8"
+      ],
+      "statement": "for every loan the return date is recorded"
+    },
+    {
+      "id": "F16",
+      "sentenceIds": [
+        "S9"
+      ],
+      "statement": "employees work in the library"
+    },
+    {
+      "id": "F17",
+      "sentenceIds": [
+        "S10"
+      ],
+      "statement": "an employee is either a librarian or a technician"
+    },
+    {
+      "id": "F18",
+      "sentenceIds": [
+        "S11"
+      ],
+      "statement": "each librarian manages a section"
+    },
+    {
+      "id": "F19",
+      "sentenceIds": [
+        "S12"
+      ],
+      "statement": "a section is located on a floor"
     }
-   ],
-   "attribution": {
-    "sentenceIds": [
-     "S7",
-     "S8"
-    ],
-    "evidence": [
-     "A member can borrow many copies, and a copy can be borrowed by many members"
-    ],
-    "confidence": 0.9,
-    "rationale": "Explicit many-to-many borrowing with loan data: an aggregation."
-   }
-  },
-  {
-   "name": "Manages",
-   "displayName": "manages",
-   "mapping1": {
-    "role": "section",
-    "domain": "Librarian",
-    "coDomain": "Section",
-    "lowerBound": 1,
-    "upperBound": 1,
-    "boundsStated": true
-   },
-   "mapping2": {
-    "role": "manager",
-    "domain": "Section",
-    "coDomain": "Librarian",
-    "lowerBound": 0,
-    "upperBound": 1,
-    "boundsStated": false
-   },
-   "isWeak": false,
-   "attributes": [],
-   "attribution": {
-    "sentenceIds": [
-     "S11"
-    ],
-    "evidence": [
-     "Each librarian manages a section"
-    ],
-    "confidence": 0.85,
-    "rationale": "Librarian side is stated; how many librarians manage a section is not."
-   }
-  }
- ],
- "generalizations": [
-  {
-   "superEntity": "Employee",
-   "subEntities": [
-    "Librarian",
-    "Technician"
-   ],
-   "isDisjoint": true,
-   "isTotal": true,
-   "attribution": {
-    "sentenceIds": [
-     "S10"
-    ],
-    "evidence": [
-     "An employee is either a librarian or a technician"
-    ],
-    "confidence": 0.9,
-    "rationale": "'Either ... or' indicates subtypes of Employee."
-   }
-  }
- ],
- "notes": [
-  "The text does not say how many librarians can manage one section.",
-  "No identifier is given for Employee."
- ]
+  ],
+  "entities": [
+    {
+      "evidence": [
+        "F1",
+        "F2"
+      ],
+      "name": "Member",
+      "displayName": null,
+      "isWeak": false,
+      "ownerEntity": "",
+      "weakEvidence": [],
+      "attributes": [
+        {
+          "evidence": [
+            "F2"
+          ],
+          "name": "membershipNumber",
+          "type": "string",
+          "length": 10,
+          "isIdentifier": true,
+          "isMultivalued": false,
+          "isOptional": false,
+          "confidence": "stated",
+          "rationale": ""
+        },
+        {
+          "evidence": [
+            "F3"
+          ],
+          "name": "name",
+          "type": "string",
+          "length": 50,
+          "isIdentifier": false,
+          "isMultivalued": false,
+          "isOptional": false,
+          "confidence": "stated",
+          "rationale": ""
+        },
+        {
+          "evidence": [
+            "F4"
+          ],
+          "name": "phoneNumber",
+          "type": "string",
+          "length": 20,
+          "isIdentifier": false,
+          "isMultivalued": true,
+          "isOptional": false,
+          "confidence": "inferred",
+          "rationale": "several values without properties of their own (HN2)"
+        }
+      ],
+      "confidence": "stated",
+      "rationale": ""
+    },
+    {
+      "evidence": [
+        "F5",
+        "F6"
+      ],
+      "name": "Book",
+      "displayName": null,
+      "isWeak": false,
+      "ownerEntity": "",
+      "weakEvidence": [],
+      "attributes": [
+        {
+          "evidence": [
+            "F6"
+          ],
+          "name": "isbn",
+          "type": "char",
+          "length": 13,
+          "isIdentifier": true,
+          "isMultivalued": false,
+          "isOptional": false,
+          "confidence": "stated",
+          "rationale": ""
+        },
+        {
+          "evidence": [
+            "F7"
+          ],
+          "name": "title",
+          "type": "string",
+          "length": 100,
+          "isIdentifier": false,
+          "isMultivalued": false,
+          "isOptional": false,
+          "confidence": "stated",
+          "rationale": ""
+        },
+        {
+          "evidence": [
+            "F8"
+          ],
+          "name": "publicationYear",
+          "type": "int",
+          "length": null,
+          "isIdentifier": false,
+          "isMultivalued": false,
+          "isOptional": false,
+          "confidence": "stated",
+          "rationale": ""
+        },
+        {
+          "evidence": [
+            "F9"
+          ],
+          "name": "author",
+          "type": "string",
+          "length": 100,
+          "isIdentifier": false,
+          "isMultivalued": true,
+          "isOptional": false,
+          "confidence": "inferred",
+          "rationale": "authors have no properties of their own (HN1)"
+        }
+      ],
+      "confidence": "stated",
+      "rationale": ""
+    },
+    {
+      "evidence": [
+        "F10"
+      ],
+      "name": "Copy",
+      "displayName": null,
+      "isWeak": true,
+      "ownerEntity": "Book",
+      "weakEvidence": [
+        "F11"
+      ],
+      "attributes": [
+        {
+          "evidence": [
+            "F11"
+          ],
+          "name": "copyNumber",
+          "type": "int",
+          "length": null,
+          "isIdentifier": true,
+          "isMultivalued": false,
+          "isOptional": false,
+          "confidence": "stated",
+          "rationale": ""
+        }
+      ],
+      "confidence": "inferred",
+      "rationale": "many per book, numbered within it (HN6)"
+    },
+    {
+      "evidence": [
+        "F16",
+        "F17"
+      ],
+      "name": "Employee",
+      "displayName": null,
+      "isWeak": false,
+      "ownerEntity": "",
+      "weakEvidence": [],
+      "attributes": [
+        {
+          "evidence": [],
+          "name": "employeeId",
+          "type": "int",
+          "length": null,
+          "isIdentifier": true,
+          "isMultivalued": false,
+          "isOptional": false,
+          "confidence": "assumed",
+          "rationale": "the text gives no identifier; added by convention"
+        }
+      ],
+      "confidence": "stated",
+      "rationale": ""
+    },
+    {
+      "evidence": [
+        "F17"
+      ],
+      "name": "Librarian",
+      "displayName": null,
+      "isWeak": false,
+      "ownerEntity": "",
+      "weakEvidence": [],
+      "attributes": [],
+      "confidence": "stated",
+      "rationale": ""
+    },
+    {
+      "evidence": [
+        "F17"
+      ],
+      "name": "Technician",
+      "displayName": null,
+      "isWeak": false,
+      "ownerEntity": "",
+      "weakEvidence": [],
+      "attributes": [],
+      "confidence": "stated",
+      "rationale": ""
+    },
+    {
+      "evidence": [
+        "F18",
+        "F19"
+      ],
+      "name": "Section",
+      "displayName": null,
+      "isWeak": false,
+      "ownerEntity": "",
+      "weakEvidence": [],
+      "attributes": [
+        {
+          "evidence": [
+            "F19"
+          ],
+          "name": "floor",
+          "type": "int",
+          "length": null,
+          "isIdentifier": false,
+          "isMultivalued": false,
+          "isOptional": false,
+          "confidence": "stated",
+          "rationale": ""
+        }
+      ],
+      "confidence": "inferred",
+      "rationale": "only a floor and one relationship: entity or attribute (HA6)"
+    }
+  ],
+  "relationships": [
+    {
+      "evidence": [
+        "F10",
+        "F11"
+      ],
+      "name": "Has",
+      "displayName": null,
+      "mapping1": {
+        "fromEntity": "Book",
+        "toEntity": "Copy",
+        "role": "copies",
+        "lowerBound": 0,
+        "upperBound": -1,
+        "boundsStated": true
+      },
+      "mapping2": {
+        "fromEntity": "Copy",
+        "toEntity": "Book",
+        "role": "book",
+        "lowerBound": 1,
+        "upperBound": 1,
+        "boundsStated": true
+      },
+      "isIdentifying": true,
+      "isAggregation": false,
+      "aggregationEvidence": [],
+      "attributes": [],
+      "confidence": "inferred",
+      "rationale": "identifies a copy within its book (HK4)"
+    },
+    {
+      "evidence": [
+        "F12",
+        "F13"
+      ],
+      "name": "Borrows",
+      "displayName": "borrow",
+      "mapping1": {
+        "fromEntity": "Member",
+        "toEntity": "Copy",
+        "role": "borrowedCopies",
+        "lowerBound": 0,
+        "upperBound": -1,
+        "boundsStated": true
+      },
+      "mapping2": {
+        "fromEntity": "Copy",
+        "toEntity": "Member",
+        "role": "borrowers",
+        "lowerBound": 0,
+        "upperBound": -1,
+        "boundsStated": true
+      },
+      "isIdentifying": false,
+      "isAggregation": true,
+      "aggregationEvidence": [
+        "F14",
+        "F15"
+      ],
+      "attributes": [
+        {
+          "evidence": [
+            "F14"
+          ],
+          "name": "loanDate",
+          "type": "date",
+          "length": null,
+          "isIdentifier": false,
+          "isMultivalued": false,
+          "isOptional": false,
+          "confidence": "stated",
+          "rationale": ""
+        },
+        {
+          "evidence": [
+            "F15"
+          ],
+          "name": "returnDate",
+          "type": "date",
+          "length": null,
+          "isIdentifier": false,
+          "isMultivalued": false,
+          "isOptional": false,
+          "confidence": "stated",
+          "rationale": ""
+        }
+      ],
+      "confidence": "stated",
+      "rationale": "loan dates depend on the member–copy pair (HN5)"
+    },
+    {
+      "evidence": [
+        "F18"
+      ],
+      "name": "Manages",
+      "displayName": "manages",
+      "mapping1": {
+        "fromEntity": "Librarian",
+        "toEntity": "Section",
+        "role": "section",
+        "lowerBound": 1,
+        "upperBound": 1,
+        "boundsStated": true
+      },
+      "mapping2": {
+        "fromEntity": "Section",
+        "toEntity": "Librarian",
+        "role": "manager",
+        "lowerBound": 0,
+        "upperBound": 1,
+        "boundsStated": false
+      },
+      "isIdentifying": false,
+      "isAggregation": false,
+      "aggregationEvidence": [],
+      "attributes": [],
+      "confidence": "stated",
+      "rationale": ""
+    }
+  ],
+  "generalizations": [
+    {
+      "evidence": [
+        "F17"
+      ],
+      "superEntity": "Employee",
+      "subEntities": [
+        "Librarian",
+        "Technician"
+      ],
+      "isDisjoint": true,
+      "isTotal": true,
+      "confidence": "inferred",
+      "rationale": "\"either ... or\"; librarians manage sections (HR7)"
+    }
+  ],
+  "notes": [
+    "The text does not say how many librarians can manage one section.",
+    "No identifier is given for Employee.",
+    "Technician has no attributes or relationships of its own; check whether it is a subtype or just a value (HR6)."
+  ]
 }

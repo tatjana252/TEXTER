@@ -9,5 +9,13 @@ export const CONFIDENCE_ORDER = ['High', 'Medium', 'Low']
 
 export const colorsFor = (level) => CONFIDENCE[level] ?? CONFIDENCE.Low
 
-/** Same thresholds as the backend defaults (appsettings: Confidence). */
-export const levelFor = (confidence) => (confidence >= 0.8 ? 'High' : confidence >= 0.5 ? 'Medium' : 'Low')
+/** How directly the cited facts support an element (ConfidenceCategory enum). */
+export const CATEGORY = {
+  Stated: 'stated',
+  Inferred: 'inferred',
+  Assumed: 'assumed'
+}
+
+/** Level of a bare category, e.g. from an ERLD @confidence(stated) annotation (no caps applied). */
+export const levelFor = (category) =>
+  ({ stated: 'High', inferred: 'Medium', assumed: 'Low' })[String(category).toLowerCase()] ?? 'Low'

@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using Texter.Model.Conceptual;
@@ -151,7 +150,7 @@ namespace Texter.Logic.Erld
             {
                 if (!includeAttribution) return "";
                 var source = element.SentenceIds.Count > 0 ? $"@source({string.Join(", ", element.SentenceIds)}) " : "";
-                return $"{source}@confidence({element.Confidence.ToString("0.##", CultureInfo.InvariantCulture)}) ";
+                return $"{source}@confidence({element.Confidence.ToString().ToLowerInvariant()}) ";
             }
 
             private string EntityName(string id) => Name(_entities[id].Name);

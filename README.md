@@ -36,23 +36,32 @@ frontend/                    Vue 3 + Vite + GoJS
 
 ## Korak 1: tekst → PMER model sa atribucijom
 
+Prompt prati G3 (fact-mediated) iz IEEE Access rada, uz dodatke za ERLD (tipovi i dužine, višeznačni i opcioni
+atributi, uloge, `boundsStated`, disjoint/total za IS-A, napomene).
+
 1. Tekst se deterministički deli na rečenice S1, S2, ... (pozicije se pamte).
-2. **Jedan poziv** LLM-u (`gpt-5.4-mini`, stroga JSON šema) vraća PMER model. Uz svaki entitet, atribut,
-   relaciju i generalizaciju ide **atribucija**: rečenice, doslovni citati, sigurnost 0–1 i obrazloženje.
-   Za svako preslikavanje LLM kaže i da li su granice (DG,GG) navedene u tekstu (`boundsStated`).
-3. `EvidenceLocator` pronalazi citate u tekstu (tačno → normalizovano → najbliža rečenica);
-   ako citat ne može da se nađe, označavaju se cele citirane rečenice.
-4. `ConfidenceClassifier`: **High** ≥ 0.8 (zeleno), **Medium** ≥ 0.5 (žuto), **Low** (crveno), uz pravila:
-   element bez ikakve atribucije u tekstu → najviše Low; relacija sa pretpostavljenim granicama → najviše Medium.
-   Pragovi su u `appsettings.json` (`Confidence`).
-5. Na dijagramu: prelaz mišem označava tekst i rečenice elementa; pretpostavljene granice su crvene sa `?`.
+2. **Jedan poziv** LLM-u (`gpt-5.4-mini`, stroga JSON šema), u dva koraka unutar istog odgovora:
+   - **činjenice** F1, F2, …: atomske tvrdnje u rečima teksta, bez pojmova modelovanja, svaka sa rečenicama iz kojih je pročitana;
+   - **model** građen samo iz tih činjenica: svaki entitet, atribut, veza i generalizacija citira činjenice (`evidence`,
+     bez ograničenja broja, prazno ako ga ništa ne nosi). Slab entitet i agregacija posebno citiraju činjenice
+     te odluke (`weakEvidence`, `aggregationEvidence`).
+   - Sigurnost je kategorija: `stated` (činjenica ga imenuje), `inferred` (odluka modelovanja), `assumed`
+     (konvencija, bez činjenica). Obrazloženje sa šifrom heuristike (HE/HA/HR/HK/HN) ide samo uz odluke koje bi
+     čitalac preispitao. Katalog heuristika je deo prompta.
+3. Citirane činjenice vode do rečenica, a te rečenice se označavaju u tekstu.
+4. `ConfidenceClassifier`: stated → **High** (zeleno), inferred → **Medium** (žuto), assumed → **Low** (crveno), uz pravila:
+   element bez činjenica je uvek assumed; element koji ne vodi ni do jedne rečenice → najviše Low; relacija sa
+   pretpostavljenim granicama → najviše Medium; slab entitet / agregacija bez činjenica za tu odluku → najviše Low.
+   Ograničenja se mogu menjati u `appsettings.json` (sekcija `Confidence`, podrazumevano u `ConfidenceOptions`).
+5. Na dijagramu: prelaz mišem označava rečenice elementa, a ispod dijagrama su kategorija, obrazloženje i citirane
+   činjenice. Pretpostavljene granice su crvene, sa `?`.
 
 ## Korak 2: PMER → ERLD
 
 - `ErldGenerator` piše ERLD: kratki zapis gde može, dugi zapis za identifikujuće veze i za veze čije je neko
   preslikavanje pretpostavljeno (`@assumed`), agregacije za veze sa atributima, `specialization` za IS-A,
   `on delete cascade` od vlasnika ka slabom entitetu. Imena koja su ključne reči idu pod navodnike.
-- Atribucija se čuva u jeziku: `@source(S2, S4) @confidence(0.95)` ispred deklaracija, atributa i preslikavanja
+- Atribucija se čuva u jeziku: `@source(S2, S4) @confidence(stated)` ispred deklaracija, atributa i preslikavanja
   (gramatika v0.3). U editoru, prelaz preko reda označava rečenice zahteva iz kojih je element nastao.
 - Svaki generisani ili ručno izmenjeni ERLD proverava se parserom generisanim iz `ERLD.g4`.
 - `ERLCommon.g4` (izrazi, imena, leksika) je rekonstruisan na osnovu ERLD gramatike i primera

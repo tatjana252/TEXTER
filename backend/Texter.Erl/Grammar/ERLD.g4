@@ -63,7 +63,7 @@ declarationBody
 /*
  * Metapodaci koji ne menjaju semantiku modela. TEXTER koristi:
  *   @source(S2, S4)      rečenice zahteva iz kojih je element nastao
- *   @confidence(0.95)    sigurnost LLM-a (0..1)
+ *   @confidence(stated)  stated | inferred | assumed: koliko direktno ga činjenice iz teksta podržavaju
  * Ostala imena su slobodna (@todo('proveriti kardinalnost'), @author(...)).
  */
 annotation

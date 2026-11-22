@@ -60,10 +60,10 @@ const attribution = computed(() => {
   const lines = erld.value?.code.split('\n') ?? []
   const parse = (line) => ({
     sentenceIds: line?.match(/@source\(([^)]*)\)/)?.[1].split(',').map((s) => s.trim()) ?? [],
-    confidence: Number(line?.match(/@confidence\(([^)]*)\)/)?.[1] ?? NaN)
+    confidence: line?.match(/@confidence\(([^)]*)\)/)?.[1].trim() ?? null
   })
   let found = parse(lines[currentLine.value - 1])
-  if (!found.sentenceIds.length && Number.isNaN(found.confidence)) found = parse(lines[currentLine.value - 2])
+  if (!found.sentenceIds.length && !found.confidence) found = parse(lines[currentLine.value - 2])
   return found
 })
 
@@ -72,7 +72,7 @@ const spans = computed(() =>
     .filter((s) => attribution.value.sentenceIds.includes(s.id))
     .map((s) => ({ start: s.start, length: s.length }))
 )
-const level = computed(() => (Number.isNaN(attribution.value.confidence) ? 'High' : levelFor(attribution.value.confidence)))
+const level = computed(() => (attribution.value.confidence ? levelFor(attribution.value.confidence) : 'High'))
 </script>
 
 <template>

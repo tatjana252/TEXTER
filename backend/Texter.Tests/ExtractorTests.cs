@@ -31,23 +31,49 @@ namespace Texter.Tests
         }
 
         [Fact]
-        public async Task Elements_are_attributed_to_text()
+        public async Task Facts_are_read_from_sentences()
+        {
+            var facts = (await ExtractSampleAsync()).Model.Facts;
+
+            Assert.Equal(19, facts.Count);
+            var f11 = facts.Single(f => f.Id == "F11");
+            Assert.Equal(new[] { "S6" }, f11.SentenceIds);
+            Assert.Equal("a copy is identified by its copy number within the book", f11.Statement);
+        }
+
+        [Fact]
+        public async Task Elements_cite_facts_that_lead_to_sentences()
         {
             var model = (await ExtractSampleAsync()).Model;
 
             var member = model.Entities.Single(e => e.Name == "Member");
+            Assert.Equal(new[] { "F1", "F2" }, member.FactIds);
             Assert.Equal(new[] { "S1", "S2" }, member.SentenceIds);
-            Assert.NotEmpty(member.Spans);
+            Assert.Equal(2, member.Spans.Count);
+            Assert.Equal(ConfidenceCategory.Stated, member.Confidence);
             Assert.Equal(ConfidenceLevel.High, member.ConfidenceLevel);
         }
 
         [Fact]
-        public async Task Element_without_supporting_text_is_low()
+        public async Task Weak_entity_cites_the_facts_of_its_decision()
+        {
+            var copy = (await ExtractSampleAsync()).Model.Entities.Single(e => e.Name == "Copy");
+
+            Assert.Equal(EntityKind.Weak, copy.Kind);
+            Assert.Equal(new[] { "F11" }, copy.WeakFactIds);
+            Assert.Equal(new[] { "S5", "S6" }, copy.SentenceIds);
+            Assert.Equal(ConfidenceLevel.Medium, copy.ConfidenceLevel);
+        }
+
+        [Fact]
+        public async Task Element_without_facts_is_assumed_and_low()
         {
             var model = (await ExtractSampleAsync()).Model;
 
             var employeeId = model.Entities.Single(e => e.Name == "Employee").Attributes.Single();
+            Assert.Empty(employeeId.FactIds);
             Assert.Empty(employeeId.Spans);
+            Assert.Equal(ConfidenceCategory.Assumed, employeeId.Confidence);
             Assert.Equal(ConfidenceLevel.Low, employeeId.ConfidenceLevel);
         }
 
@@ -56,7 +82,7 @@ namespace Texter.Tests
         {
             var manage = (await ExtractSampleAsync()).Model.Relationships.Single(r => r.Name == "Manages");
 
-            Assert.Equal(0.85, manage.Confidence);
+            Assert.Equal(ConfidenceCategory.Stated, manage.Confidence);
             Assert.True(manage.Mapping2.IsAssumed);
             Assert.Equal(ConfidenceLevel.Medium, manage.ConfidenceLevel);
         }
@@ -74,6 +100,41 @@ namespace Texter.Tests
         }
 
         [Fact]
+        public async Task Unsupported_decisions_and_unknown_facts_are_flagged()
+        {
+            const string answer = """
+                {
+                  "facts": [ { "id": "F1", "sentenceIds": ["S1"], "statement": "an order has lines" } ],
+                  "entities": [
+                    { "evidence": ["F1"], "name": "Order", "displayName": null, "isWeak": false, "ownerEntity": "", "weakEvidence": [],
+                      "attributes": [], "confidence": "stated", "rationale": "" },
+                    { "evidence": ["F1"], "name": "Line", "displayName": null, "isWeak": true, "ownerEntity": "Order", "weakEvidence": [],
+                      "attributes": [
+                        { "evidence": ["F9"], "name": "price", "type": "money", "length": null, "isIdentifier": false,
+                          "isMultivalued": false, "isOptional": false, "confidence": "stated", "rationale": "" } ],
+                      "confidence": "stated", "rationale": "" }
+                  ],
+                  "relationships": [], "generalizations": [], "notes": []
+                }
+                """;
+            var extractor = new LlmConceptualModelExtractor(new CannedLlm(answer), new ConfidenceClassifier(Options.Create(new ConfidenceOptions())));
+
+            var result = await extractor.ExtractAsync("An order has lines.");
+            var line = result.Model.Entities.Single(e => e.Name == "Line");
+
+            Assert.Equal(ConfidenceLevel.Low, line.ConfidenceLevel); // weak, but no fact carries the decision
+            var price = line.Attributes.Single();
+            Assert.Equal(ConfidenceCategory.Assumed, price.Confidence); // cites only a fact that was never stated
+            Assert.Contains(result.Notes, n => n.Contains("F9"));
+            Assert.Contains(result.Notes, n => n.Contains("no identifying relationship"));
+        }
+
+        private sealed class CannedLlm(string answer) : ILlmClient
+        {
+            public Task<string> CompleteJsonAsync(LlmJsonRequest request, CancellationToken cancellationToken = default) => Task.FromResult(answer);
+        }
+
+        [Fact]
         public async Task Diagram_links_point_to_existing_nodes()
         {
             var diagram = ConvertToDiagram.Convert((await ExtractSampleAsync()).Model);
@@ -83,6 +144,7 @@ namespace Texter.Tests
             Assert.Contains(diagram.Nodes, n => n.Category == NodeCategory.Aggregation);
             Assert.Contains(diagram.Nodes, n => n.Category == NodeCategory.WeakRelationship);
             Assert.Contains(diagram.Links, l => l.Category == LinkCategory.Mapping && l.IsAssumed);
+            Assert.Equal(new[] { "F14", "F15" }, diagram.Nodes.Single(n => n.Text == "Borrows").DecisionFactIds);
         }
     }
 }

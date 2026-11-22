@@ -2,7 +2,7 @@ namespace Texter.Model.Conceptual
 {
     /// <summary>
     /// PMER relationship R(E1, E2), described by two mappings: E1 => E2 (DG, GG) and E2 => E1 (DG, GG).
-    /// A relationship that has its own attributes is an aggregation.
+    /// A relationship whose data belongs to the combination of its entities is an aggregation.
     /// </summary>
     public class Relationship : ModelElement
     {
@@ -17,7 +17,11 @@ namespace Texter.Model.Conceptual
 
         public List<Attribute> Attributes { get; set; } = new();
 
-        public bool IsAggregation => Attributes.Count > 0;
+        /// <summary>Data belongs to the combination of the two entities (associative entity); it carries that data as attributes.</summary>
+        public bool IsAggregation { get; set; }
+
+        /// <summary>Facts showing that data belongs to the combination of the two entities.</summary>
+        public List<string> AggregationFactIds { get; set; } = new();
     }
 
     /// <summary>Mapping Domain => CoDomain with lower (DG) and upper (GG) bound.</summary>

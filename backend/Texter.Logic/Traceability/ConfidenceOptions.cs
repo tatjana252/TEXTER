@@ -1,22 +1,22 @@
+using Texter.Model.Conceptual;
+
 namespace Texter.Logic.Traceability
 {
+    /// <summary>
+    /// Display level of an element: stated -> High (green), inferred -> Medium (yellow), assumed -> Low (red),
+    /// then capped by the rules below.
+    /// </summary>
     public class ConfidenceOptions
     {
         public const string SectionName = "Confidence";
 
-        /// <summary>Confidence at or above this is High (green).</summary>
-        public double HighThreshold { get; set; } = 0.8;
+        /// <summary>An element whose facts lead to no sentence of the text has no traceable reason.</summary>
+        public ConfidenceLevel UntraceableCap { get; set; } = ConfidenceLevel.Low;
 
-        /// <summary>Confidence at or above this is Medium (yellow); below is Low (red).</summary>
-        public double MediumThreshold { get; set; } = 0.5;
+        /// <summary>A relationship with at least one mapping whose bounds no fact states.</summary>
+        public ConfidenceLevel AssumedBoundsCap { get; set; } = ConfidenceLevel.Medium;
 
-        /// <summary>
-        /// An element whose evidence cannot be found in the text has no traceable reason,
-        /// so its level is capped at this value.
-        /// </summary>
-        public Model.Conceptual.ConfidenceLevel UntraceableCap { get; set; } = Model.Conceptual.ConfidenceLevel.Low;
-
-        /// <summary>A relationship with at least one mapping whose bounds have no cue in the text is capped at this level.</summary>
-        public Model.Conceptual.ConfidenceLevel AssumedBoundsCap { get; set; } = Model.Conceptual.ConfidenceLevel.Medium;
+        /// <summary>A weak entity or an aggregation whose decision no fact carries (empty weak / aggregation evidence).</summary>
+        public ConfidenceLevel UnsupportedDecisionCap { get; set; } = ConfidenceLevel.Low;
     }
 }

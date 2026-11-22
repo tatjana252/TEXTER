@@ -57,8 +57,9 @@ namespace Texter.Tests
             Assert.Contains("Book -> Copy [0..*] as copies on delete cascade;", code);
             Assert.Contains("aggregation Borrows as \"borrow\":", code);
             Assert.Contains("@assumed Section -> Librarian [0..1] as manager;", code);
+            Assert.Contains("@source(S10) @confidence(inferred)\nspecialization of Employee", code);
             Assert.Contains("specialization of Employee (disjoint, total) { Librarian, Technician }", code);
-            Assert.Contains("@source(S2) @confidence(0.95) key membershipNumber : string(10);", code);
+            Assert.Contains("@source(S2) @confidence(stated) key membershipNumber : string(10);", code);
         }
 
         [Fact]

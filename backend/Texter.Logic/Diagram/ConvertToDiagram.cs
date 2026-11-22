@@ -69,6 +69,13 @@ namespace Texter.Logic.Diagram
             Key = element.Id,
             Category = category,
             Text = element.Name,
+            FactIds = element.FactIds,
+            DecisionFactIds = element switch
+            {
+                Entity e => e.WeakFactIds,
+                Relationship r => r.AggregationFactIds,
+                _ => new List<string>()
+            },
             SentenceIds = element.SentenceIds,
             Spans = element.Spans,
             Confidence = element.Confidence,

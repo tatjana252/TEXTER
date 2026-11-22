@@ -21,8 +21,16 @@ namespace Texter.Model.GoJs
         [JsonPropertyName("spans")]
         public List<TextSpan> Spans { get; set; } = new();
 
+        /// <summary>Facts (F1, F2, ...) the element rests on.</summary>
+        [JsonPropertyName("factIds")]
+        public List<string> FactIds { get; set; } = new();
+
+        /// <summary>Facts behind the weak entity / aggregation decision.</summary>
+        [JsonPropertyName("decisionFactIds")]
+        public List<string> DecisionFactIds { get; set; } = new();
+
         [JsonPropertyName("confidence")]
-        public double Confidence { get; set; }
+        public ConfidenceCategory Confidence { get; set; }
 
         [JsonPropertyName("confidenceLevel")]
         public ConfidenceLevel ConfidenceLevel { get; set; }

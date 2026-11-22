@@ -82,7 +82,7 @@ function edit() {
         <div v-if="loading" class="overlay">The LLM is analysing the text…</div>
         <div v-else-if="!result" class="overlay muted">Enter requirements and generate the diagram.</div>
       </div>
-      <ElementDetails v-if="result" :element="active" />
+      <ElementDetails v-if="result" :element="active" :facts="result.model.facts" />
     </section>
   </main>
 </template>
