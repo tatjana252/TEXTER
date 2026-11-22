@@ -4,25 +4,16 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <!-- ANTLR generated code is not nullable-annotated -->
+    <!-- Generated/ is ANTLR output (see generate-parser.ps1); it is not nullable-annotated -->
     <NoWarn>$(NoWarn);CS3021;CS8981</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Antlr4.Runtime.Standard" Version="4.13.1" />
-    <PackageReference Include="Antlr4BuildTasks" Version="13.0.0" PrivateAssets="all" />
   </ItemGroup>
 
-  <!-- C# parser is generated at build time from the grammar (needs Java on the build machine). -->
   <ItemGroup>
-    <Antlr4 Remove="Grammar\ERLCommon.g4" />
-    <None Include="Grammar\ERLCommon.g4" />
-    <Antlr4 Include="Grammar\ERLD.g4">
-      <Package>Texter.Erl.Grammar</Package>
-      <Listener>false</Listener>
-      <Visitor>true</Visitor>
-      <LibPath>Grammar</LibPath>
-    </Antlr4>
+    <None Include="Grammar\*.g4" />
   </ItemGroup>
 
 </Project>

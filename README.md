@@ -27,7 +27,7 @@ backend/                     .NET 10
     Traceability/            SentenceSplitter, EvidenceLocator (citat → pozicija), ConfidenceClassifier
     Diagram/                 ConvertToDiagram (PMER DER notacija)
     Erld/                    ErldGenerator (PMER model → ERLD kod)
-  Texter.Erl/                ANTLR gramatike ERL jezika (Grammar/ERLD.g4, ERLCommon.g4) i parser
+  Texter.Erl/                ANTLR gramatike ERL jezika (Grammar/), generisani parser (Generated/), ErldSyntax
   Texter.Api/                POST /api/conceptualmodel/extract → { model, diagram, sentences, notes }
                              POST /api/erld/generate, /api/erld/validate → { code, errors }
   Texter.Tests/              xUnit
@@ -60,7 +60,11 @@ frontend/                    Vue 3 + Vite + GoJS
 
 ## Pokretanje
 
-Build backenda generiše C# parser iz gramatike (Antlr4BuildTasks), pa je potrebna **Java** (11+).
+Za build i pokretanje dovoljan je .NET 10 SDK i Node.js.
+
+Posle izmene gramatike (`Texter.Erl/Grammar/*.g4`) parser se ponovo generiše skriptom
+`Texter.Erl/generate-parser.ps1` (ili `.sh`). Samo za to treba Java 11+, jer je ANTLR alat napisan u Javi;
+generisani C# kod (`Texter.Erl/Generated/`) je u repozitorijumu.
 
 
 Backend (OpenAI ključ preko user-secrets, ne u appsettings):
