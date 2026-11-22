@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Texter.Api/Texter.Api.csproj" />
+  <Project Path="Texter.Logic/Texter.Logic.csproj" />
+  <Project Path="Texter.Model/Texter.Model.csproj" />
+  <Project Path="Texter.Tests/Texter.Tests.csproj" />
+</Solution>

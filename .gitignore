@@ -1,0 +1,17 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+
+# Node
+node_modules/
+dist/
+
+# Python
+__pycache__/
+.venv/
+
+# Secrets
+appsettings.*.local.json
+.env

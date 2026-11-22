@@ -1,0 +1,86 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "entities", "relationships", "generalizations" ],
+  "properties": {
+    "entities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [ "name", "isWeak", "attributes", "evidence", "confidence", "rationale" ],
+        "properties": {
+          "name": { "type": "string" },
+          "isWeak": { "type": "boolean" },
+          "attributes": { "type": "array", "items": { "$ref": "#/$defs/attribute" } },
+          "evidence": { "type": "array", "items": { "type": "string" } },
+          "confidence": { "type": "number" },
+          "rationale": { "type": "string" }
+        }
+      }
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [ "name", "isIdentifying", "participants", "attributes", "evidence", "confidence", "rationale" ],
+        "properties": {
+          "name": { "type": "string" },
+          "isIdentifying": { "type": "boolean" },
+          "participants": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [ "entity", "cardinality", "isTotal", "role" ],
+              "properties": {
+                "entity": { "type": "string" },
+                "cardinality": { "type": "string", "enum": [ "1", "N" ] },
+                "isTotal": { "type": "boolean" },
+                "role": { "type": [ "string", "null" ] }
+              }
+            }
+          },
+          "attributes": { "type": "array", "items": { "$ref": "#/$defs/attribute" } },
+          "evidence": { "type": "array", "items": { "type": "string" } },
+          "confidence": { "type": "number" },
+          "rationale": { "type": "string" }
+        }
+      }
+    },
+    "generalizations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [ "superEntity", "subEntities", "isDisjoint", "isTotal", "evidence", "confidence", "rationale" ],
+        "properties": {
+          "superEntity": { "type": "string" },
+          "subEntities": { "type": "array", "items": { "type": "string" } },
+          "isDisjoint": { "type": "boolean" },
+          "isTotal": { "type": "boolean" },
+          "evidence": { "type": "array", "items": { "type": "string" } },
+          "confidence": { "type": "number" },
+          "rationale": { "type": "string" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "attribute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "name", "isKey", "isMultivalued", "isDerived", "evidence", "confidence", "rationale" ],
+      "properties": {
+        "name": { "type": "string" },
+        "isKey": { "type": "boolean" },
+        "isMultivalued": { "type": "boolean" },
+        "isDerived": { "type": "boolean" },
+        "evidence": { "type": "array", "items": { "type": "string" } },
+        "confidence": { "type": "number" },
+        "rationale": { "type": "string" }
+      }
+    }
+  }
+}
