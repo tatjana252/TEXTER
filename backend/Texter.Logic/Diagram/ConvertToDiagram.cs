@@ -4,7 +4,7 @@ using Attribute = Texter.Model.Conceptual.Attribute;
 
 namespace Texter.Logic.Diagram
 {
-    /// <summary>Conceptual model -> GoJS model in Chen notation.</summary>
+    /// <summary>Conceptual model -> GoJS model in PMER DER notation.</summary>
     public static class ConvertToDiagram
     {
         public static DiagramModel Convert(ConceptualModel model)
@@ -13,26 +13,28 @@ namespace Texter.Logic.Diagram
 
             foreach (var entity in model.Entities)
             {
-                result.Nodes.Add(NodeFor(entity, entity.IsWeak ? NodeCategory.WeakEntity : NodeCategory.Entity));
+                result.Nodes.Add(NodeFor(entity, entity.Kind == EntityKind.Weak ? NodeCategory.WeakEntity : NodeCategory.Entity));
                 AddAttributes(result, entity.Id, entity.Attributes);
             }
 
             foreach (var relationship in model.Relationships)
             {
-                result.Nodes.Add(NodeFor(relationship,
-                    relationship.IsIdentifying ? NodeCategory.IdentifyingRelationship : NodeCategory.Relationship));
+                var category = relationship.IsAggregation ? NodeCategory.Aggregation
+                    : relationship.IsWeak ? NodeCategory.WeakRelationship
+                    : NodeCategory.Relationship;
+                result.Nodes.Add(NodeFor(relationship, category));
 
-                foreach (var participant in relationship.Participants)
+                // The bounds of mapping E => X are written on the line between the relationship and E.
+                foreach (var mapping in new[] { relationship.Mapping1, relationship.Mapping2 })
                 {
                     result.Links.Add(new Link
                     {
                         From = relationship.Id,
-                        To = participant.EntityId,
-                        Category = LinkCategory.Participation,
-                        Text = string.IsNullOrWhiteSpace(participant.Role)
-                            ? participant.Cardinality
-                            : $"{participant.Cardinality} ({participant.Role})",
-                        IsTotal = participant.IsTotal
+                        To = mapping.DomainEntityId,
+                        Category = LinkCategory.Mapping,
+                        Text = mapping.ToString(),
+                        MappingName = mapping.Name,
+                        IsAssumed = mapping.IsAssumed
                     });
                 }
                 AddAttributes(result, relationship.Id, relationship.Attributes);
@@ -40,21 +42,10 @@ namespace Texter.Logic.Diagram
 
             foreach (var generalization in model.Generalizations)
             {
-                var node = NodeFor(generalization, NodeCategory.Generalization);
-                node.IsDisjoint = generalization.IsDisjoint;
-                result.Nodes.Add(node);
-
-                result.Links.Add(new Link
-                {
-                    From = generalization.SuperEntityId,
-                    To = generalization.Id,
-                    Category = LinkCategory.Generalization,
-                    IsTotal = generalization.IsTotal
-                });
+                result.Nodes.Add(NodeFor(generalization, NodeCategory.Generalization));
+                result.Links.Add(new Link { From = generalization.SuperEntityId, To = generalization.Id, Category = LinkCategory.Generalization });
                 foreach (var subId in generalization.SubEntityIds)
-                {
                     result.Links.Add(new Link { From = generalization.Id, To = subId, Category = LinkCategory.Generalization });
-                }
             }
 
             return result;
@@ -65,9 +56,8 @@ namespace Texter.Logic.Diagram
             foreach (var attribute in attributes)
             {
                 var node = NodeFor(attribute, NodeCategory.Attribute);
-                node.IsKey = attribute.IsKey;
-                node.IsMultivalued = attribute.IsMultivalued;
-                node.IsDerived = attribute.IsDerived;
+                node.IsIdentifier = attribute.IsIdentifier;
+                node.Type = attribute.Type;
                 diagram.Nodes.Add(node);
                 diagram.Links.Add(new Link { From = ownerId, To = attribute.Id, Category = LinkCategory.Attribute });
             }
@@ -78,9 +68,10 @@ namespace Texter.Logic.Diagram
             Key = element.Id,
             Category = category,
             Text = element.Name,
+            SentenceIds = element.SentenceIds,
+            Spans = element.Spans,
             Confidence = element.Confidence,
             ConfidenceLevel = element.ConfidenceLevel,
-            Spans = element.Spans,
             Rationale = element.Rationale
         };
     }

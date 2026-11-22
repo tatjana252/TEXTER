@@ -4,7 +4,7 @@ namespace Texter.Model.GoJs
     public static class LinkCategory
     {
         public const string Attribute = "attribute";
-        public const string Participation = "participation";
+        public const string Mapping = "mapping";
         public const string Generalization = "generalization";
     }
 }

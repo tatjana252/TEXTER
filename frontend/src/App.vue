@@ -16,15 +16,13 @@ const steps = [
 ]
 
 const text = ref('')
-const result = ref(null) // { model, diagram }
+const result = ref(null) // { model, diagram, sentences, notes }
 const loading = ref(false)
 const error = ref('')
 const hovered = ref(null)
 const selected = ref(null)
 const diagramRef = ref(null)
 
-// Text the result was generated from; spans refer to it.
-const analyzedText = ref('')
 const isViewing = computed(() => result.value !== null)
 const active = computed(() => hovered.value ?? selected.value)
 
@@ -33,7 +31,6 @@ async function generate() {
   error.value = ''
   try {
     result.value = await texterApi.extractConceptualModel(text.value)
-    analyzedText.value = text.value
     hovered.value = selected.value = null
   } catch (e) {
     error.value = e.message
@@ -77,13 +74,21 @@ function edit() {
           :readonly="isViewing"
           :spans="active?.spans ?? []"
           :confidence-level="active?.confidenceLevel"
+          :sentences="result?.sentences ?? []"
+          :active-sentence-ids="active?.sentenceIds ?? []"
         />
+        <details v-if="result?.notes.length" class="notes">
+          <summary>Notes from the analysis ({{ result.notes.length }})</summary>
+          <ul>
+            <li v-for="(note, i) in result.notes" :key="i">{{ note }}</li>
+          </ul>
+        </details>
         <p v-if="error" class="error">{{ error }}</p>
       </section>
 
       <section class="panel diagram-panel">
         <div class="toolbar">
-          <h2>EER diagram</h2>
+          <h2>PMER diagram</h2>
           <span class="spacer" />
           <ConfidenceLegend v-if="result" :nodes="result.diagram.nodes" />
           <button v-if="result" @click="diagramRef?.relayout()">Re-layout</button>
@@ -173,6 +178,17 @@ h2 {
 }
 .overlay.muted {
   color: var(--muted);
+}
+.notes {
+  font-size: 13px;
+  color: var(--muted);
+}
+.notes summary {
+  cursor: pointer;
+}
+.notes ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
 }
 .error {
   margin: 0;

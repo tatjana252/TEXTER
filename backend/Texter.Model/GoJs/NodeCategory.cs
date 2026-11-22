@@ -6,7 +6,8 @@ namespace Texter.Model.GoJs
         public const string Entity = "entity";
         public const string WeakEntity = "weakEntity";
         public const string Relationship = "relationship";
-        public const string IdentifyingRelationship = "identifyingRelationship";
+        public const string WeakRelationship = "weakRelationship";
+        public const string Aggregation = "aggregation";
         public const string Attribute = "attribute";
         public const string Generalization = "generalization";
     }

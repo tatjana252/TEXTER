@@ -1,6 +1,6 @@
 namespace Texter.Model.Conceptual
 {
-    /// <summary>EER conceptual model extracted from requirements text.</summary>
+    /// <summary>PMER (EER) conceptual model extracted from requirements text.</summary>
     public class ConceptualModel
     {
         public List<Entity> Entities { get; set; } = new();

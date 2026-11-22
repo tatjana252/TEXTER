@@ -4,7 +4,7 @@ namespace Texter.Logic.Llm
     {
         public const string SectionName = "Llm";
 
-        /// <summary>"OpenAI" or "Fake" (returns a canned answer, useful without an API key).</summary>
+        /// <summary>"OpenAI" or "Fake" (canned answers, useful without an API key).</summary>
         public string Provider { get; set; } = "OpenAI";
 
         public string Model { get; set; } = "gpt-5.4-mini";
@@ -16,7 +16,7 @@ namespace Texter.Logic.Llm
 
         public int TimeoutSeconds { get; set; } = 180;
 
-        /// <summary>File returned by the Fake provider.</summary>
-        public string FakeResponsePath { get; set; } = "Samples/library-response.json";
+        /// <summary>Folder with canned answers for the Fake provider, one file per schema: {SchemaName}.json.</summary>
+        public string FakeResponsesDir { get; set; } = "Samples/fake";
     }
 }

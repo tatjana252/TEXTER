@@ -10,16 +10,17 @@ const KIND = {
   entity: 'Entity',
   weakEntity: 'Weak entity',
   relationship: 'Relationship',
-  identifyingRelationship: 'Identifying relationship',
+  weakRelationship: 'Weak entity relationship',
+  aggregation: 'Aggregation',
   attribute: 'Attribute',
-  generalization: 'Specialization'
+  generalization: 'Generalization'
 }
 
 const kind = computed(() => {
   const e = props.element
   if (!e) return ''
-  const flags = [e.isKey && 'key', e.isMultivalued && 'multivalued', e.isDerived && 'derived'].filter(Boolean)
-  return KIND[e.category] + (flags.length ? ` (${flags.join(', ')})` : '')
+  if (e.category !== 'attribute') return KIND[e.category]
+  return `${e.isIdentifier ? 'Identifier' : 'Attribute'} · ${e.type}`
 })
 
 const colors = computed(() => colorsFor(props.element?.confidenceLevel))
@@ -29,16 +30,17 @@ const colors = computed(() => colorsFor(props.element?.confidenceLevel))
   <div class="details">
     <template v-if="element">
       <div class="header">
-        <span class="name">{{ element.category === 'generalization' ? (element.isDisjoint ? 'Disjoint' : 'Overlapping') : element.text }}</span>
+        <span class="name">{{ element.text }}</span>
         <span class="kind">{{ kind }}</span>
         <span class="badge" :style="{ background: colors.fill, color: colors.text, borderColor: colors.stroke }">
           {{ colors.label }} · {{ Math.round(element.confidence * 100) }}%
         </span>
+        <span v-for="id in element.sentenceIds" :key="id" class="sentence">{{ id }}</span>
       </div>
       <p class="rationale">{{ element.rationale }}</p>
-      <p v-if="!element.spans.length" class="warning">No supporting text found in the requirements.</p>
+      <p v-if="!element.spans.length" class="warning">Not attributed to any part of the requirements.</p>
     </template>
-    <p v-else class="hint">Hover over a diagram element to see the text it comes from.</p>
+    <p v-else class="hint">Hover over a diagram element to see the text it is attributed to.</p>
   </div>
 </template>
 
@@ -50,7 +52,7 @@ const colors = computed(() => colorsFor(props.element?.confidenceLevel))
 .header {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 .name {
@@ -66,6 +68,14 @@ const colors = computed(() => colorsFor(props.element?.confidenceLevel))
   padding: 1px 10px;
   font-size: 12px;
   font-weight: 600;
+}
+.sentence {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  background: #edf0fc;
+  border-radius: 4px;
+  padding: 1px 6px;
 }
 .rationale {
   margin: 6px 0 0;

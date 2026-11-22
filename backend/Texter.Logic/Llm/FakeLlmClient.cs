@@ -2,7 +2,7 @@ using Microsoft.Extensions.Options;
 
 namespace Texter.Logic.Llm
 {
-    /// <summary>Returns a canned answer from a file. For UI development and tests without an API key.</summary>
+    /// <summary>Returns canned answers ({FakeResponsesDir}/{SchemaName}.json). For UI development and tests.</summary>
     public class FakeLlmClient : ILlmClient
     {
         private readonly LlmOptions _options;
@@ -11,10 +11,10 @@ namespace Texter.Logic.Llm
 
         public Task<string> CompleteJsonAsync(LlmJsonRequest request, CancellationToken cancellationToken = default)
         {
-            var path = Path.IsPathRooted(_options.FakeResponsePath)
-                ? _options.FakeResponsePath
-                : Path.Combine(AppContext.BaseDirectory, _options.FakeResponsePath);
-            return File.ReadAllTextAsync(path, cancellationToken);
+            var dir = Path.IsPathRooted(_options.FakeResponsesDir)
+                ? _options.FakeResponsesDir
+                : Path.Combine(AppContext.BaseDirectory, _options.FakeResponsesDir);
+            return File.ReadAllTextAsync(Path.Combine(dir, request.SchemaName + ".json"), cancellationToken);
         }
     }
 }

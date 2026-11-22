@@ -1,0 +1,88 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "entities", "relationships", "generalizations", "notes" ],
+  "properties": {
+    "entities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [ "name", "kind", "attributes", "attribution" ],
+        "properties": {
+          "name": { "type": "string" },
+          "kind": { "type": "string", "enum": [ "normal", "weak" ] },
+          "attributes": { "type": "array", "items": { "$ref": "#/$defs/attribute" } },
+          "attribution": { "$ref": "#/$defs/attribution" }
+        }
+      }
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [ "name", "mapping1", "mapping2", "isWeak", "attributes", "attribution" ],
+        "properties": {
+          "name": { "type": "string" },
+          "mapping1": { "$ref": "#/$defs/mapping" },
+          "mapping2": { "$ref": "#/$defs/mapping" },
+          "isWeak": { "type": "boolean" },
+          "attributes": { "type": "array", "items": { "$ref": "#/$defs/attribute" } },
+          "attribution": { "$ref": "#/$defs/attribution" }
+        }
+      }
+    },
+    "generalizations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [ "superEntity", "subEntities", "attribution" ],
+        "properties": {
+          "superEntity": { "type": "string" },
+          "subEntities": { "type": "array", "items": { "type": "string" } },
+          "attribution": { "$ref": "#/$defs/attribution" }
+        }
+      }
+    },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  },
+  "$defs": {
+    "attribute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "name", "type", "isIdentifier", "attribution" ],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": [ "String", "Int", "Decimal", "Date", "DateTime", "Bool", "Text" ] },
+        "isIdentifier": { "type": "boolean" },
+        "attribution": { "$ref": "#/$defs/attribution" }
+      }
+    },
+    "mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "name", "domain", "coDomain", "lowerBound", "upperBound", "boundsStated" ],
+      "properties": {
+        "name": { "type": [ "string", "null" ] },
+        "domain": { "type": "string" },
+        "coDomain": { "type": "string" },
+        "lowerBound": { "type": "integer", "enum": [ 0, 1 ] },
+        "upperBound": { "type": "integer", "description": "-1 for M (many), otherwise a positive integer" },
+        "boundsStated": { "type": "boolean" }
+      }
+    },
+    "attribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "sentenceIds", "evidence", "confidence", "rationale" ],
+      "properties": {
+        "sentenceIds": { "type": "array", "items": { "type": "string" } },
+        "evidence": { "type": "array", "items": { "type": "string" } },
+        "confidence": { "type": "number" },
+        "rationale": { "type": "string" }
+      }
+    }
+  }
+}

@@ -9,13 +9,17 @@ namespace Texter.Logic.Traceability
 
         public ConfidenceClassifier(IOptions<ConfidenceOptions> options) => _options = options.Value;
 
-        public ConfidenceLevel Classify(double confidence, bool isTraceable)
+        public ConfidenceLevel Classify(double confidence, bool isTraceable, bool hasAssumedBounds = false)
         {
             var level = confidence >= _options.HighThreshold ? ConfidenceLevel.High
                 : confidence >= _options.MediumThreshold ? ConfidenceLevel.Medium
                 : ConfidenceLevel.Low;
 
-            return isTraceable || level <= _options.UntraceableCap ? level : _options.UntraceableCap;
+            if (!isTraceable) level = Min(level, _options.UntraceableCap);
+            if (hasAssumedBounds) level = Min(level, _options.AssumedBoundsCap);
+            return level;
         }
+
+        private static ConfidenceLevel Min(ConfidenceLevel a, ConfidenceLevel b) => a < b ? a : b;
     }
 }

@@ -1,94 +1,115 @@
 import go from 'gojs'
 import { colorsFor } from './confidence'
 
-// Chen-notation templates. Category names must match Texter.Model/GoJs/NodeCategory.cs and LinkCategory.cs.
+// PMER DER templates. Category names must match Texter.Model/GoJs/NodeCategory.cs and LinkCategory.cs.
 
 const FONT = '600 13px "Segoe UI", system-ui, sans-serif'
+const SMALL = '12px "Segoe UI", system-ui, sans-serif'
 const LINE = '#5c6370'
+const ASSUMED = '#d63c3c'
+
+const hoverEvents = (events) => ({
+  cursor: 'pointer',
+  mouseEnter: (e, obj) => events.onHover(obj.data),
+  mouseLeave: () => events.onHover(null)
+})
+
+const confidenceFill = (shape) =>
+  shape
+    .bind('fill', 'confidenceLevel', (l) => colorsFor(l).fill)
+    .bind('stroke', 'confidenceLevel', (l) => colorsFor(l).stroke)
 
 /**
- * Node with an optional inner (double) border, colored by confidence.
- * @param figure GoJS figure name
- * @param isDouble (data) => bool, draws the inner border (weak entity, identifying relationship, multivalued attribute)
+ * Shape with an optional inner (double) border, colored by confidence.
+ * @param isDouble draws the inner border (weak entity, weak relationship)
  */
-function shapeNode(figure, isDouble, { minSize, margin = 4, font = FONT, events }) {
-  return new go.Node('Auto', {
-    cursor: 'pointer',
-    mouseEnter: (e, node) => events.onHover(node.data),
-    mouseLeave: () => events.onHover(null)
-  }).add(
-    new go.Shape(figure, { strokeWidth: 2, minSize })
-      .bind('fill', 'confidenceLevel', (l) => colorsFor(l).fill)
-      .bind('stroke', 'confidenceLevel', (l) => colorsFor(l).stroke)
-      .bind('strokeDashArray', 'isDerived', (d) => (d ? [5, 3] : null)),
+function shapeNode(figure, isDouble, { minSize, margin = 4, events }) {
+  return new go.Node('Auto', hoverEvents(events)).add(
+    confidenceFill(new go.Shape(figure, { strokeWidth: 2, minSize })),
     new go.Panel('Auto', { margin }).add(
       new go.Shape(figure, { fill: null, strokeWidth: 1.5 })
-        .bind('stroke', '', (d) => (isDouble(d) ? colorsFor(d.confidenceLevel).stroke : null)),
-      new go.TextBlock({ margin: new go.Margin(6, 10), font, textAlign: 'center', stroke: '#222' })
-        .bind('text')
-        .bind('isUnderline', 'isKey')
+        .bind('stroke', '', (d) => (isDouble ? colorsFor(d.confidenceLevel).stroke : null)),
+      new go.TextBlock({ margin: new go.Margin(6, 10), font: FONT, textAlign: 'center', stroke: '#222' }).bind('text')
     )
   )
 }
 
+/** Aggregation: relationship (diamond) inside an entity rectangle - mixed entity-relationship type. */
+function aggregationNode(events) {
+  return new go.Node('Auto', hoverEvents(events)).add(
+    confidenceFill(new go.Shape('Rectangle', { strokeWidth: 2 })),
+    new go.Panel('Auto', { margin: 4 }).add(
+      new go.Shape('Diamond', { fill: 'white', strokeWidth: 1.5, minSize: new go.Size(110, 56) })
+        .bind('stroke', 'confidenceLevel', (l) => colorsFor(l).stroke),
+      new go.TextBlock({ margin: new go.Margin(6, 10), font: FONT, stroke: '#222' }).bind('text')
+    )
+  )
+}
+
+/** Attribute oval; identifier attributes are marked with # (and underlined). */
+function attributeNode(events) {
+  return new go.Node('Auto', hoverEvents(events)).add(
+    confidenceFill(new go.Shape('Ellipse', { strokeWidth: 1.5, minSize: new go.Size(64, 30) })),
+    new go.TextBlock({ margin: new go.Margin(4, 10), font: SMALL, stroke: '#222' })
+      .bind('text', '', (d) => (d.isIdentifier ? `#${d.text}` : d.text))
+      .bind('isUnderline', 'isIdentifier')
+  )
+}
+
+/** IS-A (generalization / specialization). */
+function generalizationNode(events) {
+  return new go.Node('Auto', hoverEvents(events)).add(
+    confidenceFill(new go.Shape('Triangle', { strokeWidth: 2, minSize: new go.Size(56, 40) })),
+    new go.TextBlock('IS-A', { margin: new go.Margin(14, 4, 2, 4), font: 'bold 11px "Segoe UI", system-ui, sans-serif' })
+  )
+}
+
 export function nodeTemplates(events) {
-  const entity = () =>
-    shapeNode('Rectangle', (d) => d.category === 'weakEntity', { minSize: new go.Size(110, 44), events })
-  const relationship = () =>
-    shapeNode('Diamond', (d) => d.category === 'identifyingRelationship', {
-      minSize: new go.Size(120, 64), margin: 7, events
-    })
-  const attribute = shapeNode('Ellipse', (d) => d.isMultivalued, {
-    minSize: new go.Size(70, 34), margin: 3, font: '12px "Segoe UI", system-ui, sans-serif', events
-  })
-  const generalization = shapeNode('Circle', () => false, { minSize: new go.Size(30, 30), margin: 0, events })
+  const entity = (weak) => shapeNode('Rectangle', weak, { minSize: new go.Size(110, 44), events })
+  const relationship = (weak) => shapeNode('Diamond', weak, { minSize: new go.Size(120, 64), margin: 7, events })
 
   return new go.Map([
-    ['entity', entity()],
-    ['weakEntity', entity()],
-    ['relationship', relationship()],
-    ['identifyingRelationship', relationship()],
-    ['attribute', attribute],
-    ['generalization', generalization]
+    ['entity', entity(false)],
+    ['weakEntity', entity(true)],
+    ['relationship', relationship(false)],
+    ['weakRelationship', relationship(true)],
+    ['aggregation', aggregationNode(events)],
+    ['attribute', attributeNode(events)],
+    ['generalization', generalizationNode(events)]
   ])
 }
 
-/** Line that becomes a double line when isTotal (total participation / total specialization). */
-function totalAwareLink() {
-  return new go.Link({ selectable: false, layerName: 'Background' }).add(
-    new go.Shape({ isPanelMain: true, stroke: LINE }).bind('strokeWidth', 'isTotal', (t) => (t ? 5 : 1.5)),
-    new go.Shape({ isPanelMain: true, stroke: 'white', strokeWidth: 2 }).bind('visible', 'isTotal')
-  )
-}
-
 export function linkTemplates() {
-  const participation = totalAwareLink().add(
-    new go.TextBlock({
-      segmentIndex: -1,
-      segmentOffset: new go.Point(-22, -12),
-      font: 'bold 13px "Segoe UI", system-ui, sans-serif',
-      stroke: '#333'
-    }).bind('text')
+  // Relationship -> entity; the label is the mapping entity => other entity, written next to the diamond.
+  const mapping = new go.Link({ selectable: false, layerName: 'Background' }).add(
+    new go.Shape({ stroke: LINE, strokeWidth: 1.5 }),
+    new go.Panel('Vertical', { segmentIndex: 0, segmentFraction: 0.35, segmentOffset: new go.Point(0, -14) }).add(
+      new go.TextBlock({ font: 'bold 13px "Segoe UI", system-ui, sans-serif' })
+        .bind('text', '', (d) => (d.isAssumed ? `${d.text}?` : d.text))
+        .bind('stroke', 'isAssumed', (a) => (a ? ASSUMED : '#333')),
+      new go.TextBlock({ font: 'italic 11px "Segoe UI", system-ui, sans-serif', stroke: '#6a737d' })
+        .bind('text', 'mappingName')
+        .bind('visible', 'mappingName', (n) => !!n)
+    )
   )
 
-  const attribute = new go.Link({ selectable: false, layerName: 'Background' }).add(
-    new go.Shape({ stroke: LINE, strokeWidth: 1.2 })
-  )
+  const plain = (width) =>
+    new go.Link({ selectable: false, layerName: 'Background' }).add(new go.Shape({ stroke: LINE, strokeWidth: width }))
 
   return new go.Map([
-    ['participation', participation],
-    ['generalization', totalAwareLink()],
-    ['attribute', attribute]
+    ['mapping', mapping],
+    ['attribute', plain(1.2)],
+    ['generalization', plain(1.5)]
   ])
 }
 
 /** Force-directed layout with short springs for attributes, so they cluster around their owner. */
-export class ChenLayout extends go.ForceDirectedLayout {
+export class DerLayout extends go.ForceDirectedLayout {
   constructor() {
     super({ maxIterations: 800, defaultElectricalCharge: 120 })
   }
 
   springLength(edge) {
-    return edge.link?.category === 'attribute' ? 20 : 60
+    return edge.link?.category === 'attribute' ? 20 : 70
   }
 }

@@ -1,20 +1,23 @@
+using System.Reflection;
 using System.Text.Json;
 using Texter.Logic.Llm;
 using Texter.Logic.Traceability;
 using Texter.Model.Conceptual;
+using Texter.Model.Traceability;
 using Attribute = Texter.Model.Conceptual.Attribute;
 
 namespace Texter.Logic.Extraction
 {
     /// <summary>
-    /// Asks the LLM for an EER model with evidence and confidence for each element,
-    /// then resolves the evidence to positions in the text and classifies the confidence.
+    /// TEXTER step 1 in a single LLM call: the requirements, split into sentences S1, S2, ..., go to the LLM,
+    /// which returns the PMER model with an attribution for every element (sentences, verbatim evidence,
+    /// confidence, rationale). The evidence is then located in the text and the confidence classified.
     /// </summary>
     public class LlmConceptualModelExtractor : IConceptualModelExtractor
     {
-        private static readonly string SystemPrompt = EmbeddedResource.Read("eer-extraction.system.md");
-        private static readonly string Schema = EmbeddedResource.Read("eer-extraction.schema.json");
-        private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+        private static readonly string SystemPrompt = Resource("pmer-extraction.system.md");
+        private static readonly string Schema = Resource("pmer-extraction.schema.json");
+        private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
         private readonly ILlmClient _llm;
         private readonly ConfidenceClassifier _classifier;
@@ -25,100 +28,144 @@ namespace Texter.Logic.Extraction
             _classifier = classifier;
         }
 
-        public async Task<ConceptualModel> ExtractAsync(string requirements, CancellationToken cancellationToken = default)
+        public async Task<ExtractionResult> ExtractAsync(string requirements, CancellationToken cancellationToken = default)
         {
-            var request = new LlmJsonRequest(SystemPrompt, $"Requirements:\n\n{requirements}", "eer_model", Schema);
-            var answer = await _llm.CompleteJsonAsync(request, cancellationToken);
+            var sentences = SentenceSplitter.Split(requirements);
+            var userPrompt = "Requirements: " + JsonSerializer.Serialize(sentences.Select(s => new { s.Id, s.Text }), Json);
 
-            var raw = JsonSerializer.Deserialize<LlmEerModel>(answer, JsonOptions)
+            var answer = await _llm.CompleteJsonAsync(new LlmJsonRequest(SystemPrompt, userPrompt, "pmer_model", Schema), cancellationToken);
+            var raw = JsonSerializer.Deserialize<LlmPmerModel>(answer, Json)
                 ?? throw new LlmException("Could not parse the model answer.");
 
-            return new Mapper(new EvidenceLocator(requirements), _classifier).Map(raw);
+            var mapper = new Mapper(sentences, new EvidenceLocator(requirements), _classifier);
+            var model = mapper.Map(raw);
+            return new ExtractionResult(model, sentences, raw.Notes.Concat(mapper.Problems).ToList());
         }
 
-        /// <summary>Maps the raw LLM answer to the domain model (ids, name resolution, spans, confidence levels).</summary>
-        private sealed class Mapper(EvidenceLocator locator, ConfidenceClassifier classifier)
+        private static string Resource(string fileName)
         {
-            private readonly Dictionary<string, string> _entityIdsByName = new(StringComparer.OrdinalIgnoreCase);
+            var assembly = Assembly.GetExecutingAssembly();
+            var name = assembly.GetManifestResourceNames().Single(n => n.EndsWith("." + fileName, StringComparison.Ordinal));
+            using var reader = new StreamReader(assembly.GetManifestResourceStream(name)!);
+            return reader.ReadToEnd();
+        }
 
-            public ConceptualModel Map(LlmEerModel raw)
+        /// <summary>Raw answer -> conceptual model: ids (E1, E1.A1, R1, G1), entity references, attribution.</summary>
+        private sealed class Mapper(List<Sentence> sentences, EvidenceLocator locator, ConfidenceClassifier classifier)
+        {
+            private readonly Dictionary<string, Sentence> _sentences = sentences.ToDictionary(s => s.Id);
+            private readonly Dictionary<string, string> _entityIds = new(StringComparer.OrdinalIgnoreCase);
+
+            public List<string> Problems { get; } = new();
+
+            public ConceptualModel Map(LlmPmerModel raw)
             {
                 var model = new ConceptualModel();
 
-                foreach (var (llmEntity, i) in raw.Entities.Select((e, i) => (e, i)))
+                foreach (var (e, i) in raw.Entities.Select((e, i) => (e, i)))
                 {
-                    var entity = Fill(new Entity { Id = $"E{i + 1}", Name = llmEntity.Name, IsWeak = llmEntity.IsWeak }, llmEntity);
-                    entity.Attributes = MapAttributes(entity.Id, llmEntity.Attributes);
-                    _entityIdsByName.TryAdd(Key(entity.Name), entity.Id);
-                    model.Entities.Add(entity);
+                    var entity = Attribute(new Entity
+                    {
+                        Id = $"E{i + 1}",
+                        Name = e.Name,
+                        Kind = e.Kind == "weak" ? EntityKind.Weak : EntityKind.Normal
+                    }, e.Attribution);
+                    entity.Attributes = Attributes(entity.Id, e.Attributes);
+
+                    if (_entityIds.TryAdd(Key(e.Name), entity.Id)) model.Entities.Add(entity);
+                    else Problems.Add($"Duplicate entity '{e.Name}' was ignored.");
                 }
 
-                foreach (var (llmRelationship, i) in raw.Relationships.Select((r, i) => (r, i)))
+                foreach (var r in raw.Relationships)
                 {
-                    var relationship = Fill(new Relationship
+                    var mapping1 = Mapping(r.Mapping1);
+                    var mapping2 = Mapping(r.Mapping2);
+                    if (mapping1 is null || mapping2 is null)
                     {
-                        Id = $"R{i + 1}",
-                        Name = llmRelationship.Name,
-                        IsIdentifying = llmRelationship.IsIdentifying
-                    }, llmRelationship);
+                        Problems.Add($"Relationship '{r.Name}' refers to an unknown entity and was ignored.");
+                        continue;
+                    }
 
-                    relationship.Participants = llmRelationship.Participants
-                        .Where(p => ResolveEntity(p.Entity) is not null)
-                        .Select(p => new Participant
-                        {
-                            EntityId = ResolveEntity(p.Entity)!,
-                            Cardinality = p.Cardinality,
-                            IsTotal = p.IsTotal,
-                            Role = p.Role
-                        })
-                        .ToList();
-                    relationship.Attributes = MapAttributes(relationship.Id, llmRelationship.Attributes);
-
-                    if (relationship.Participants.Count > 0)
-                        model.Relationships.Add(relationship);
+                    var relationship = new Relationship
+                    {
+                        Id = $"R{model.Relationships.Count + 1}",
+                        Name = r.Name,
+                        IsWeak = r.IsWeak,
+                        Mapping1 = mapping1,
+                        Mapping2 = mapping2
+                    };
+                    relationship.Attributes = Attributes(relationship.Id, r.Attributes);
+                    model.Relationships.Add(Attribute(relationship, r.Attribution, hasAssumedBounds: mapping1.IsAssumed || mapping2.IsAssumed));
                 }
 
-                foreach (var (llmGeneralization, i) in raw.Generalizations.Select((g, i) => (g, i)))
+                foreach (var g in raw.Generalizations)
                 {
-                    var superId = ResolveEntity(llmGeneralization.SuperEntity);
-                    var subIds = llmGeneralization.SubEntities.Select(ResolveEntity).OfType<string>().ToList();
-                    if (superId is null || subIds.Count == 0) continue;
-
-                    model.Generalizations.Add(Fill(new Generalization
+                    var superId = EntityId(g.SuperEntity);
+                    var subIds = g.SubEntities.Select(EntityId).OfType<string>().ToList();
+                    if (superId is null || subIds.Count == 0)
                     {
-                        Id = $"G{i + 1}",
-                        Name = llmGeneralization.IsDisjoint ? "d" : "o",
+                        Problems.Add($"Generalization of '{g.SuperEntity}' refers to unknown entities and was ignored.");
+                        continue;
+                    }
+
+                    model.Generalizations.Add(Attribute(new Generalization
+                    {
+                        Id = $"G{model.Generalizations.Count + 1}",
+                        Name = "IS-A",
                         SuperEntityId = superId,
-                        SubEntityIds = subIds,
-                        IsDisjoint = llmGeneralization.IsDisjoint,
-                        IsTotal = llmGeneralization.IsTotal
-                    }, llmGeneralization));
+                        SubEntityIds = subIds
+                    }, g.Attribution));
                 }
 
                 return model;
             }
 
-            private List<Attribute> MapAttributes(string ownerId, List<LlmAttribute> attributes) =>
-                attributes.Select((a, i) => Fill(new Attribute
+            private List<Attribute> Attributes(string ownerId, List<LlmAttribute> attributes) =>
+                attributes.Select((a, i) => Attribute(new Attribute
                 {
                     Id = $"{ownerId}.A{i + 1}",
                     Name = a.Name,
-                    IsKey = a.IsKey,
-                    IsMultivalued = a.IsMultivalued,
-                    IsDerived = a.IsDerived
-                }, a)).ToList();
+                    Type = a.Type,
+                    IsIdentifier = a.IsIdentifier
+                }, a.Attribution)).ToList();
 
-            private T Fill<T>(T element, LlmElement source) where T : ModelElement
+            private Mapping? Mapping(LlmMapping m)
             {
-                element.Confidence = Math.Clamp(source.Confidence, 0, 1);
-                element.Evidence = source.Evidence;
-                element.Rationale = source.Rationale;
-                element.Spans = locator.LocateAll(source.Evidence);
-                element.ConfidenceLevel = classifier.Classify(element.Confidence, isTraceable: element.Spans.Count > 0);
+                var domain = EntityId(m.Domain);
+                var coDomain = EntityId(m.CoDomain);
+                if (domain is null || coDomain is null) return null;
+
+                return new Mapping
+                {
+                    Name = m.Name,
+                    DomainEntityId = domain,
+                    CoDomainEntityId = coDomain,
+                    LowerBound = m.LowerBound,
+                    UpperBound = m.UpperBound < 0 ? Model.Conceptual.Mapping.Many : m.UpperBound,
+                    IsAssumed = !m.BoundsStated
+                };
+            }
+
+            /// <summary>
+            /// Attribution: cited sentences, evidence located in the text (whole sentences when an excerpt cannot be found),
+            /// confidence capped when nothing is traceable or the bounds were assumed.
+            /// </summary>
+            private T Attribute<T>(T element, LlmAttribution attribution, bool hasAssumedBounds = false) where T : ModelElement
+            {
+                element.SentenceIds = attribution.SentenceIds.Where(_sentences.ContainsKey).Distinct().ToList();
+                element.Evidence = attribution.Evidence;
+                element.Rationale = attribution.Rationale;
+                element.Confidence = Math.Clamp(attribution.Confidence, 0, 1);
+
+                element.Spans = locator.LocateAll(attribution.Evidence);
+                if (element.Spans.Count == 0)
+                    element.Spans = element.SentenceIds.Select(id => new TextSpan(_sentences[id].Start, _sentences[id].Length)).ToList();
+
+                element.ConfidenceLevel = classifier.Classify(element.Confidence, element.Spans.Count > 0, hasAssumedBounds);
                 return element;
             }
 
-            private string? ResolveEntity(string name) => _entityIdsByName.GetValueOrDefault(Key(name));
+            private string? EntityId(string name) => _entityIds.GetValueOrDefault(Key(name));
 
             private static string Key(string name) => new(name.Where(char.IsLetterOrDigit).ToArray());
         }

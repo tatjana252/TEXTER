@@ -1,7 +1,7 @@
 <script setup>
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import go from 'gojs'
-import { ChenLayout, linkTemplates, nodeTemplates } from '../diagram/templates'
+import { DerLayout, linkTemplates, nodeTemplates } from '../diagram/templates'
 
 const props = defineProps({
   /** GoJS model data { nodes, links } from the backend */
@@ -14,7 +14,7 @@ let diagram = null
 
 onMounted(() => {
   diagram = new go.Diagram(container.value, {
-    layout: new ChenLayout(),
+    layout: new DerLayout(),
     initialAutoScale: go.AutoScale.Uniform,
     padding: 30,
     'undoManager.isEnabled': true,

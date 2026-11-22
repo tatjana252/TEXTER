@@ -1,0 +1,417 @@
+{
+ "entities": [
+  {
+   "name": "Member",
+   "kind": "normal",
+   "attribution": {
+    "sentenceIds": [
+     "S1",
+     "S2"
+    ],
+    "evidence": [
+     "The library keeps track of its members"
+    ],
+    "confidence": 0.95,
+    "rationale": "Members are explicitly tracked and described."
+   },
+   "attributes": [
+    {
+     "name": "membershipNumber",
+     "type": "String",
+     "isIdentifier": true,
+     "attribution": {
+      "sentenceIds": [
+       "S2"
+      ],
+      "evidence": [
+       "a unique membership number"
+      ],
+      "confidence": 0.95,
+      "rationale": "Stated as unique, so it identifies a member."
+     }
+    },
+    {
+     "name": "name",
+     "type": "String",
+     "isIdentifier": false,
+     "attribution": {
+      "sentenceIds": [
+       "S2"
+      ],
+      "evidence": [
+       "a name"
+      ],
+      "confidence": 0.9,
+      "rationale": "Explicitly listed member property."
+     }
+    },
+    {
+     "name": "phoneNumber",
+     "type": "String",
+     "isIdentifier": false,
+     "attribution": {
+      "sentenceIds": [
+       "S2"
+      ],
+      "evidence": [
+       "one or more phone numbers"
+      ],
+      "confidence": 0.6,
+      "rationale": "Multivalued; in PMER it could be a weak entity instead of an attribute."
+     }
+    }
+   ]
+  },
+  {
+   "name": "Book",
+   "kind": "normal",
+   "attribution": {
+    "sentenceIds": [
+     "S3",
+     "S4"
+    ],
+    "evidence": [
+     "The library owns books"
+    ],
+    "confidence": 0.95,
+    "rationale": "Books are explicitly owned and described."
+   },
+   "attributes": [
+    {
+     "name": "isbn",
+     "type": "String",
+     "isIdentifier": true,
+     "attribution": {
+      "sentenceIds": [
+       "S4"
+      ],
+      "evidence": [
+       "A book is identified by its ISBN"
+      ],
+      "confidence": 0.97,
+      "rationale": "Explicit identifier."
+     }
+    },
+    {
+     "name": "title",
+     "type": "String",
+     "isIdentifier": false,
+     "attribution": {
+      "sentenceIds": [
+       "S4"
+      ],
+      "evidence": [
+       "a title"
+      ],
+      "confidence": 0.9,
+      "rationale": "Explicit property."
+     }
+    },
+    {
+     "name": "publicationYear",
+     "type": "Int",
+     "isIdentifier": false,
+     "attribution": {
+      "sentenceIds": [
+       "S4"
+      ],
+      "evidence": [
+       "a publication year"
+      ],
+      "confidence": 0.85,
+      "rationale": "Explicit property; Int type is inferred."
+     }
+    },
+    {
+     "name": "author",
+     "type": "String",
+     "isIdentifier": false,
+     "attribution": {
+      "sentenceIds": [
+       "S4"
+      ],
+      "evidence": [
+       "several authors"
+      ],
+      "confidence": 0.55,
+      "rationale": "Several authors suggest a separate entity rather than an attribute."
+     }
+    }
+   ]
+  },
+  {
+   "name": "Copy",
+   "kind": "weak",
+   "attribution": {
+    "sentenceIds": [
+     "S5",
+     "S6"
+    ],
+    "evidence": [
+     "the library may have many copies",
+     "identified by its copy number within the book"
+    ],
+    "confidence": 0.85,
+    "rationale": "A copy is identified only within its book, so it is weak."
+   },
+   "attributes": [
+    {
+     "name": "copyNumber",
+     "type": "Int",
+     "isIdentifier": true,
+     "attribution": {
+      "sentenceIds": [
+       "S6"
+      ],
+      "evidence": [
+       "its copy number within the book"
+      ],
+      "confidence": 0.85,
+      "rationale": "Partial identifier of the weak entity."
+     }
+    }
+   ]
+  },
+  {
+   "name": "Employee",
+   "kind": "normal",
+   "attribution": {
+    "sentenceIds": [
+     "S9",
+     "S10"
+    ],
+    "evidence": [
+     "Employees work in the library"
+    ],
+    "confidence": 0.9,
+    "rationale": "Employees are explicitly mentioned."
+   },
+   "attributes": [
+    {
+     "name": "employeeId",
+     "type": "Int",
+     "isIdentifier": true,
+     "attribution": {
+      "sentenceIds": [],
+      "evidence": [],
+      "confidence": 0.2,
+      "rationale": "No identifier is given in the text; introduced as an assumption."
+     }
+    }
+   ]
+  },
+  {
+   "name": "Librarian",
+   "kind": "normal",
+   "attribution": {
+    "sentenceIds": [
+     "S10"
+    ],
+    "evidence": [
+     "a librarian"
+    ],
+    "confidence": 0.85,
+    "rationale": "Subtype of employee."
+   },
+   "attributes": []
+  },
+  {
+   "name": "Technician",
+   "kind": "normal",
+   "attribution": {
+    "sentenceIds": [
+     "S10"
+    ],
+    "evidence": [
+     "a technician"
+    ],
+    "confidence": 0.85,
+    "rationale": "Subtype of employee."
+   },
+   "attributes": []
+  },
+  {
+   "name": "Section",
+   "kind": "normal",
+   "attribution": {
+    "sentenceIds": [
+     "S11",
+     "S12"
+    ],
+    "evidence": [
+     "Each librarian manages a section"
+    ],
+    "confidence": 0.65,
+    "rationale": "Managed and located, but no own properties besides floor."
+   },
+   "attributes": [
+    {
+     "name": "floor",
+     "type": "Int",
+     "isIdentifier": false,
+     "attribution": {
+      "sentenceIds": [
+       "S12"
+      ],
+      "evidence": [
+       "A section is located on a floor"
+      ],
+      "confidence": 0.55,
+      "rationale": "Floor could be an attribute or a separate entity."
+     }
+    }
+   ]
+  }
+ ],
+ "relationships": [
+  {
+   "name": "has",
+   "isWeak": true,
+   "mapping1": {
+    "name": "may have",
+    "domain": "Book",
+    "coDomain": "Copy",
+    "lowerBound": 0,
+    "upperBound": -1,
+    "boundsStated": true
+   },
+   "mapping2": {
+    "name": "is identified within",
+    "domain": "Copy",
+    "coDomain": "Book",
+    "lowerBound": 1,
+    "upperBound": 1,
+    "boundsStated": true
+   },
+   "attributes": [],
+   "attribution": {
+    "sentenceIds": [
+     "S5",
+     "S6"
+    ],
+    "evidence": [
+     "For each book the library may have many copies"
+    ],
+    "confidence": 0.85,
+    "rationale": "Weak entity relationship between Book and Copy."
+   }
+  },
+  {
+   "name": "borrow",
+   "isWeak": false,
+   "mapping1": {
+    "name": "can borrow",
+    "domain": "Member",
+    "coDomain": "Copy",
+    "lowerBound": 0,
+    "upperBound": -1,
+    "boundsStated": true
+   },
+   "mapping2": {
+    "name": "can be borrowed by",
+    "domain": "Copy",
+    "coDomain": "Member",
+    "lowerBound": 0,
+    "upperBound": -1,
+    "boundsStated": true
+   },
+   "attributes": [
+    {
+     "name": "loanDate",
+     "type": "Date",
+     "isIdentifier": false,
+     "attribution": {
+      "sentenceIds": [
+       "S8"
+      ],
+      "evidence": [
+       "the loan date"
+      ],
+      "confidence": 0.9,
+      "rationale": "Describes the loan itself."
+     }
+    },
+    {
+     "name": "returnDate",
+     "type": "Date",
+     "isIdentifier": false,
+     "attribution": {
+      "sentenceIds": [
+       "S8"
+      ],
+      "evidence": [
+       "the return date"
+      ],
+      "confidence": 0.9,
+      "rationale": "Describes the loan itself."
+     }
+    }
+   ],
+   "attribution": {
+    "sentenceIds": [
+     "S7",
+     "S8"
+    ],
+    "evidence": [
+     "A member can borrow many copies, and a copy can be borrowed by many members"
+    ],
+    "confidence": 0.9,
+    "rationale": "Explicit many-to-many borrowing with loan data: an aggregation."
+   }
+  },
+  {
+   "name": "manage",
+   "isWeak": false,
+   "mapping1": {
+    "name": "manages",
+    "domain": "Librarian",
+    "coDomain": "Section",
+    "lowerBound": 1,
+    "upperBound": 1,
+    "boundsStated": true
+   },
+   "mapping2": {
+    "name": null,
+    "domain": "Section",
+    "coDomain": "Librarian",
+    "lowerBound": 0,
+    "upperBound": 1,
+    "boundsStated": false
+   },
+   "attributes": [],
+   "attribution": {
+    "sentenceIds": [
+     "S11"
+    ],
+    "evidence": [
+     "Each librarian manages a section"
+    ],
+    "confidence": 0.85,
+    "rationale": "Librarian side is stated; how many librarians manage a section is not."
+   }
+  }
+ ],
+ "generalizations": [
+  {
+   "superEntity": "Employee",
+   "subEntities": [
+    "Librarian",
+    "Technician"
+   ],
+   "attribution": {
+    "sentenceIds": [
+     "S10"
+    ],
+    "evidence": [
+     "An employee is either a librarian or a technician"
+    ],
+    "confidence": 0.9,
+    "rationale": "'Either ... or' indicates subtypes of Employee."
+   }
+  }
+ ],
+ "notes": [
+  "The text does not say how many librarians can manage one section.",
+  "No identifier is given for Employee."
+ ]
+}

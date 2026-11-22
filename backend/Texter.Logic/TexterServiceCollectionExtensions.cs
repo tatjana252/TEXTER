@@ -20,6 +20,7 @@ namespace Texter.Logic
                 services.AddHttpClient<ILlmClient, OpenAiClient>();
 
             services.AddSingleton<ConfidenceClassifier>();
+
             services.AddScoped<IConceptualModelExtractor, LlmConceptualModelExtractor>();
             return services;
         }

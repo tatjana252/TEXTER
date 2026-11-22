@@ -2,8 +2,10 @@ namespace Texter.Model.Conceptual
 {
     public class Attribute : ModelElement
     {
-        public bool IsKey { get; set; }
-        public bool IsMultivalued { get; set; }
-        public bool IsDerived { get; set; }
+        /// <summary>Part of the entity identifier (# on the diagram).</summary>
+        public bool IsIdentifier { get; set; }
+
+        /// <summary>Predefined or semantic domain, e.g. String, Int, Date.</summary>
+        public string Type { get; set; } = "String";
     }
 }

@@ -13,12 +13,16 @@ namespace Texter.Model.GoJs
         [JsonPropertyName("category")]
         public string Category { get; set; } = default!;
 
-        /// <summary>Cardinality label ("1" / "N") for participation links.</summary>
+        /// <summary>Mapping bounds, e.g. "(0,M)", shown next to the relationship.</summary>
         [JsonPropertyName("text")]
         public string? Text { get; set; }
 
-        /// <summary>Total participation / total specialization, drawn as a double line.</summary>
-        [JsonPropertyName("isTotal")]
-        public bool IsTotal { get; set; }
+        /// <summary>Mapping name, e.g. "borrows".</summary>
+        [JsonPropertyName("mappingName")]
+        public string? MappingName { get; set; }
+
+        /// <summary>Bounds were assumed (no cue in the text).</summary>
+        [JsonPropertyName("isAssumed")]
+        public bool IsAssumed { get; set; }
     }
 }

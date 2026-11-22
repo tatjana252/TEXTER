@@ -8,13 +8,17 @@ const props = defineProps({
   readonly: { type: Boolean, default: false },
   /** Spans { start, length } to highlight */
   spans: { type: Array, default: () => [] },
-  confidenceLevel: { type: String, default: null }
+  confidenceLevel: { type: String, default: null },
+  /** Sentences { id, start, length } shown as S1, S2, ... labels */
+  sentences: { type: Array, default: () => [] },
+  /** Sentence ids the active element is attributed to */
+  activeSentenceIds: { type: Array, default: () => [] }
 })
 defineEmits(['update:modelValue'])
 
 const viewer = ref(null)
 
-/** Splits the text into plain / highlighted segments (overlapping spans are merged). */
+/** Splits the text into segments: sentence labels, plain and highlighted text (overlapping spans are merged). */
 const segments = computed(() => {
   const text = props.modelValue
   const ranges = [...props.spans]
@@ -27,14 +31,16 @@ const segments = computed(() => {
       return merged
     }, [])
 
+  const labels = new Map(props.sentences.map((s) => [s.start, s.id]))
+  const cuts = [...new Set([0, text.length, ...ranges.flat(), ...labels.keys()])].sort((a, b) => a - b)
+
   const result = []
-  let position = 0
-  for (const [start, end] of ranges) {
-    if (start > position) result.push({ text: text.slice(position, start), mark: false })
-    result.push({ text: text.slice(start, end), mark: true })
-    position = end
+  for (let i = 0; i < cuts.length - 1; i++) {
+    const [start, end] = [cuts[i], cuts[i + 1]]
+    if (labels.has(start)) result.push({ label: labels.get(start) })
+    const mark = ranges.some(([s, e]) => start >= s && end <= e)
+    result.push({ text: text.slice(start, end), mark })
   }
-  if (position < text.length) result.push({ text: text.slice(position), mark: false })
   return result
 })
 
@@ -63,7 +69,8 @@ watch(
   />
   <div v-else ref="viewer" class="requirements viewer">
     <template v-for="(segment, i) in segments" :key="i">
-      <mark v-if="segment.mark" :style="markStyle">{{ segment.text }}</mark>
+      <sup v-if="segment.label" :class="{ active: activeSentenceIds.includes(segment.label) }">{{ segment.label }}</sup>
+      <mark v-else-if="segment.mark" :style="markStyle">{{ segment.text }}</mark>
       <template v-else>{{ segment.text }}</template>
     </template>
   </div>
@@ -84,6 +91,19 @@ watch(
 }
 .viewer {
   white-space: pre-wrap;
+}
+sup {
+  font-size: 10px;
+  font-weight: 600;
+  color: #9aa1aa;
+  margin-right: 3px;
+  user-select: none;
+}
+sup.active {
+  color: white;
+  background: var(--accent);
+  border-radius: 3px;
+  padding: 0 3px;
 }
 mark {
   color: inherit;

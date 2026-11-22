@@ -14,14 +14,14 @@ namespace Texter.Api.Controllers
 
         public ConceptualModelController(IConceptualModelExtractor extractor) => _extractor = extractor;
 
-        /// <summary>Requirements text -> EER model with traceability and confidence, plus its diagram.</summary>
+        /// <summary>Requirements text -> TEXTER pipeline -> attributed PMER model, plus its diagram.</summary>
         [HttpPost("extract")]
         public async Task<ActionResult<ExtractResponse>> Extract(ExtractRequest request, CancellationToken cancellationToken)
         {
             try
             {
-                var model = await _extractor.ExtractAsync(request.Text, cancellationToken);
-                return new ExtractResponse(model, ConvertToDiagram.Convert(model));
+                var result = await _extractor.ExtractAsync(request.Text, cancellationToken);
+                return new ExtractResponse(result.Model, ConvertToDiagram.Convert(result.Model), result.Sentences, result.Notes);
             }
             catch (LlmException ex)
             {

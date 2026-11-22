@@ -15,5 +15,8 @@ namespace Texter.Logic.Traceability
         /// so its level is capped at this value.
         /// </summary>
         public Model.Conceptual.ConfidenceLevel UntraceableCap { get; set; } = Model.Conceptual.ConfidenceLevel.Low;
+
+        /// <summary>A relationship with at least one mapping whose bounds have no cue in the text is capped at this level.</summary>
+        public Model.Conceptual.ConfidenceLevel AssumedBoundsCap { get; set; } = Model.Conceptual.ConfidenceLevel.Medium;
     }
 }
