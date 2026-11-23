@@ -113,9 +113,10 @@ export function linkTemplates(events) {
     mouseEnter: (e, link) => events.onHover(mappingDetails(link)),
     mouseLeave: () => events.onHover(null)
   }).add(
-    new go.Shape({ stroke: LINE, strokeWidth: 1.5 }),
+    // Both shapes are the link path (isPanelMain); without it the second one is drawn as a black label.
+    new go.Shape({ isPanelMain: true, stroke: LINE, strokeWidth: 1.5 }),
     // Wide transparent stroke: easier to hit than the 1.5px line.
-    new go.Shape({ stroke: 'transparent', strokeWidth: 10 }),
+    new go.Shape({ isPanelMain: true, stroke: 'transparent', strokeWidth: 10 }),
     new go.Panel('Vertical', { segmentIndex: 0, segmentFraction: 0.35, segmentOffset: new go.Point(0, -14), background: 'transparent' }).add(
       new go.TextBlock({ font: 'bold 13px "Segoe UI", system-ui, sans-serif' })
         .bind('text', '', (d) => (d.isAssumed ? `${d.text}?` : d.text))

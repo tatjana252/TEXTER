@@ -8,7 +8,8 @@ Work in two explicit steps before emitting the final model.
 Step 1 — "facts": read the description and write down what it STATES, before you decide how to model anything.
 Each entry is one fact:
 - "statement": a single atomic claim about the domain, in the words and the language of the text. One claim per fact:
-  a sentence listing five properties yields five facts, not one;
+  a sentence listing five properties yields five facts, not one ("for each X we record a, b and c" is three facts:
+  for each X a is recorded, ...), and a sentence stating both directions of a link yields one fact per direction;
 - "sentenceIds": the sentence IDs the fact is read from;
 - "id": "F1", "F2", ... in order.
 Stay in the language of the domain. Do NOT use modeling words here — no entity, attribute, relationship, weak,
@@ -31,6 +32,11 @@ Step 2 — check the facts, as a whole, against the patterns that produce advanc
   value.
 - Aggregation (associative entity): a binary link whose own facts depend on the combination of its two participant
   entities. A relationship is not an aggregation merely because its entities participate in other relationships.
+  The text often names such a link with a noun of its own — the verbal noun of the verb that links X and Y (HR2) —
+  and records data "for" that noun. The noun names the link itself, NOT a separate entity: model ONE relationship
+  between X and Y, name it after that noun, set "isAggregation" and put the recorded data on it as its attributes.
+  Never create both an entity for the noun and a relationship for its verb, and never leave an entity that takes
+  part in no relationship — that is the sign the link was modelled twice.
 - Inheritance (IS-A): "X and Y are kinds of Z", or several entities repeating the same attributes with similar
   semantics. Add a subtype only when it has attributes or relationships the others lack. The values listed for a
   property are not subtypes and are not modelled at all — record the property and ignore the values. A PMER model
@@ -39,7 +45,9 @@ Step 2 — check the facts, as a whole, against the patterns that produce advanc
   COMBINATION of two entities, the link between them must carry it — as an aggregation (attributes on the
   relationship) or a weak entity — or the model cannot store that fact. Decide by the shape of the dependence: a fact
   tying two independent entities together needs an aggregation; many components each identified within one owner form
-  a weak entity of that owner. The mere parts of a single value are a composite attribute, not a new entity of any
+  a weak entity of that owner. When Z attaches to Y only within a specific X (HR9), the X–Y link must be an
+  aggregation and Z takes part in a relationship with that aggregation, not with X or Y alone. The mere parts of a
+  single value are a composite attribute, not a new entity of any
   kind. Introduce a new construct ONLY when you can name the fact that would otherwise have no home; when no fact is
   lost, add nothing. The values listed inside a fact are the exception: they are data, not structure, and having no
   home in the model is correct for them. A fact about a property is stored by modelling the property, whatever values
@@ -93,13 +101,18 @@ Attributes
 Relationships
 - A relationship R(E1, E2) is described by two mappings: "mapping1" E1 => E2 and "mapping2" E2 => E1 (fromEntity and
   toEntity swapped).
+- An aggregation is a mixed entity-relationship type: like an entity, it can take part in other relationships.
+  "fromEntity" / "toEntity" may name an aggregation (by its relationship "name") when the facts attach something to
+  the combination itself rather than to either of its entities (HR9). An aggregation never takes part in its own
+  relationship, and the relationship that uses it is ordinary unless its own facts make it an aggregation too.
 - NEVER output two relationships merely because the text describes the same link from opposite directions. Fold the
   two statements, their evidence and bounds into the two mappings of the same relationship. A second relationship for
   the same pair of entities requires a different explicit verb that directly links both entities in a cited fact. An
   attribute, property or type statement about only one endpoint never justifies a second relationship, and an inferred
   relationship never justifies a second one for an already represented pair.
-- "name": PascalCase after the verb the text uses (e.g. RadiNa, Borrows). Never substitute a synonym or a generic verb
-  such as "has" unless the text uses it. "displayName": the verb phrase from the text (e.g. "radi na"), or null.
+- "name": PascalCase after the verb the text uses (e.g. RadiNa). Never substitute a synonym or a generic verb such as
+  "has" unless the text uses it. An aggregation the text names with a noun takes that noun instead.
+  "displayName": the verb phrase or noun as written in the text (e.g. "radi na"), or null.
 - Each mapping has a "lowerBound" (0 or 1) and an "upperBound" (1, or -1 for M/many): for one instance of
   "fromEntity", how many instances of "toEntity" correspond through this relationship. Derive each direction
   separately from its own wording: modality (must -> 1, may/can -> 0) and quantifiers (one -> 1, many/several/one or
@@ -115,7 +128,7 @@ Relationships
   that show this data belongs to the combination; empty when "isAggregation" is false, and empty rather than padded
   when no fact carries it.
 - An evidence, confidence and rationale of a relationship cover both mappings and both bounds.
-- Use only entity names you defined.
+- Use only entity names you defined, or names of aggregations you defined.
 
 Generalizations
 - A generalization never lists the super entity among its own sub entities, and never has an empty sub entity list.
@@ -171,8 +184,8 @@ introduced.
 HR8: Links between entities of the same set indicate a recursive relationship type. The entity roles must be stated
 explicitly.
 HR9: When something connects to an entity only within the context of a specific pair — Z applies to Y only as part of
-a particular X — the X–Y link must itself carry it. Otherwise the model cannot record which Z belongs to which X–Y
-combination, even though no attribute is visibly lost.
+a particular X — the X–Y link must itself carry it: it becomes an aggregation, and Z is connected to that aggregation.
+Otherwise the model cannot record which Z belongs to which X–Y combination, even though no attribute is visibly lost.
 
 ## Cardinalities (HK)
 

@@ -402,8 +402,8 @@
         "F12",
         "F13"
       ],
-      "name": "Borrows",
-      "displayName": "borrow",
+      "name": "Loan",
+      "displayName": "loan",
       "mapping1": {
         "fromEntity": "Member",
         "toEntity": "Copy",
@@ -455,7 +455,7 @@
         }
       ],
       "confidence": "stated",
-      "rationale": "loan dates depend on the member–copy pair (HN5)"
+      "rationale": "loan dates depend on the member–copy pair; the text names the link \"loan\" (HN5, HR2)"
     },
     {
       "evidence": [

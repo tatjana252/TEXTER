@@ -59,6 +59,7 @@ namespace Texter.Logic.Extraction
             private readonly List<string> _sentenceOrder = sentences.Select(s => s.Id).ToList();
             private readonly Dictionary<string, Fact> _facts = new();
             private readonly Dictionary<string, string> _entityIds = new(StringComparer.OrdinalIgnoreCase);
+            private readonly Dictionary<string, string> _aggregationIds = new(StringComparer.OrdinalIgnoreCase);
             private readonly SortedSet<string> _unknownFacts = new();
 
             public List<string> Problems { get; } = new();
@@ -102,35 +103,14 @@ namespace Texter.Logic.Extraction
                     if (e.IsWeak) owners[entity.Id] = e.OwnerEntity;
                 }
 
+                // Relationships between entities first, then those in which an aggregation takes part (HR9):
+                // the aggregation has to exist before a relationship can refer to it.
+                var deferred = new List<LlmRelationship>();
                 foreach (var r in raw.Relationships)
-                {
-                    var mapping1 = Mapping(r.Mapping1);
-                    var mapping2 = Mapping(r.Mapping2);
-                    if (mapping1 is null || mapping2 is null)
-                    {
-                        Problems.Add($"Relationship '{r.Name}' refers to an unknown entity and was ignored.");
-                        continue;
-                    }
-
-                    var isAggregation = r.IsAggregation || r.Attributes.Count > 0;
-                    var aggregationFacts = isAggregation ? Facts(r.AggregationEvidence) : new List<string>();
-                    var relationship = new Relationship
-                    {
-                        Id = $"R{model.Relationships.Count + 1}",
-                        Name = r.Name,
-                        DisplayName = r.DisplayName,
-                        IsWeak = r.IsIdentifying,
-                        IsAggregation = isAggregation,
-                        AggregationFactIds = aggregationFacts,
-                        Mapping1 = mapping1,
-                        Mapping2 = mapping2
-                    };
-                    relationship.Attributes = Attributes(relationship.Id, r.Attributes);
-                    model.Relationships.Add(Attribute(relationship, r.Evidence, r.Confidence, r.Rationale,
-                        decisionFacts: aggregationFacts,
-                        hasAssumedBounds: mapping1.IsAssumed || mapping2.IsAssumed,
-                        hasUnsupportedDecision: r.IsAggregation && aggregationFacts.Count == 0));
-                }
+                    if (!AddRelationship(model, r, allowAggregations: false)) deferred.Add(r);
+                foreach (var r in deferred)
+                    if (!AddRelationship(model, r, allowAggregations: true))
+                        Problems.Add($"Relationship '{r.Name}' refers to an unknown entity or aggregation and was ignored.");
 
                 foreach (var g in raw.Generalizations)
                 {
@@ -154,9 +134,43 @@ namespace Texter.Logic.Extraction
                 }
 
                 CheckWeakEntities(model, owners);
+                CheckUnconnectedEntities(model);
                 if (_unknownFacts.Count > 0)
                     Problems.Add($"Cited facts that were never stated were ignored: {string.Join(", ", _unknownFacts)}.");
                 return model;
+            }
+
+            /// <summary>
+            /// Adds the relationship when both ends resolve: to entities, or also to aggregations already added.
+            /// Returns false (and adds nothing) when an end is unknown.
+            /// </summary>
+            private bool AddRelationship(ConceptualModel model, LlmRelationship r, bool allowAggregations)
+            {
+                var mapping1 = Mapping(r.Mapping1, allowAggregations);
+                var mapping2 = Mapping(r.Mapping2, allowAggregations);
+                if (mapping1 is null || mapping2 is null) return false;
+
+                var isAggregation = r.IsAggregation || r.Attributes.Count > 0;
+                var aggregationFacts = isAggregation ? Facts(r.AggregationEvidence) : new List<string>();
+                var relationship = new Relationship
+                {
+                    Id = $"R{model.Relationships.Count + 1}",
+                    Name = r.Name,
+                    DisplayName = r.DisplayName,
+                    IsWeak = r.IsIdentifying,
+                    IsAggregation = isAggregation,
+                    AggregationFactIds = aggregationFacts,
+                    Mapping1 = mapping1,
+                    Mapping2 = mapping2
+                };
+                relationship.Attributes = Attributes(relationship.Id, r.Attributes);
+                model.Relationships.Add(Attribute(relationship, r.Evidence, r.Confidence, r.Rationale,
+                    decisionFacts: aggregationFacts,
+                    hasAssumedBounds: mapping1.IsAssumed || mapping2.IsAssumed,
+                    hasUnsupportedDecision: r.IsAggregation && aggregationFacts.Count == 0));
+
+                if (isAggregation) _aggregationIds.TryAdd(Key(r.Name), relationship.Id);
+                return true;
             }
 
             /// <summary>Every weak entity needs an identifying relationship with the owner it names.</summary>
@@ -169,6 +183,22 @@ namespace Texter.Logic.Extraction
                         r.IsWeak && Connects(r, entity.Id) && (ownerId is null || Connects(r, ownerId)));
                     if (!identified)
                         Problems.Add($"Weak entity '{entity.Name}' has no identifying relationship with its owner '{owners[entity.Id]}'.");
+                }
+            }
+
+            /// <summary>
+            /// An entity in no relationship or generalization is usually a link modelled twice
+            /// (an entity for the noun "prijava" next to a relationship for the verb "prijavljuju").
+            /// </summary>
+            private void CheckUnconnectedEntities(ConceptualModel model)
+            {
+                if (model.Entities.Count < 2) return;
+                foreach (var entity in model.Entities)
+                {
+                    var connected = model.Relationships.Any(r => Connects(r, entity.Id)) ||
+                        model.Generalizations.Any(g => g.SuperEntityId == entity.Id || g.SubEntityIds.Contains(entity.Id));
+                    if (!connected)
+                        Problems.Add($"Entity '{entity.Name}' takes part in no relationship; check whether it is a relationship (aggregation) modelled as an entity.");
                 }
             }
 
@@ -187,10 +217,10 @@ namespace Texter.Logic.Extraction
                     IsOptional = a.IsOptional
                 }, a.Evidence, a.Confidence, a.Rationale)).ToList();
 
-            private Mapping? Mapping(LlmMapping m)
+            private Mapping? Mapping(LlmMapping m, bool allowAggregations)
             {
-                var domain = EntityId(m.FromEntity);
-                var coDomain = EntityId(m.ToEntity);
+                var domain = EndpointId(m.FromEntity, allowAggregations);
+                var coDomain = EndpointId(m.ToEntity, allowAggregations);
                 if (domain is null || coDomain is null) return null;
 
                 return new Mapping
@@ -246,6 +276,10 @@ namespace Texter.Logic.Extraction
             };
 
             private string? EntityId(string name) => _entityIds.GetValueOrDefault(Key(name));
+
+            /// <summary>End of a relationship: an entity, or (an aggregation takes part in other relationships) an aggregation.</summary>
+            private string? EndpointId(string name, bool allowAggregations) =>
+                EntityId(name) ?? (allowAggregations ? _aggregationIds.GetValueOrDefault(Key(name)) : null);
 
             private static string Key(string name) => new(name.Where(char.IsLetterOrDigit).ToArray());
         }

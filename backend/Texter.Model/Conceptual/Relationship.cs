@@ -24,7 +24,10 @@ namespace Texter.Model.Conceptual
         public List<string> AggregationFactIds { get; set; } = new();
     }
 
-    /// <summary>Mapping Domain => CoDomain with lower (DG) and upper (GG) bound.</summary>
+    /// <summary>
+    /// Mapping Domain => CoDomain with lower (DG) and upper (GG) bound. Domain and co-domain are entity ids,
+    /// or the id of an aggregation, which takes part in other relationships like an entity.
+    /// </summary>
     public class Mapping
     {
         /// <summary>Navigation name from the domain to the co-domain, e.g. radnik.radnoMesto, radnoMesto.radnici.</summary>

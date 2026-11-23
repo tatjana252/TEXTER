@@ -132,8 +132,14 @@
       "additionalProperties": false,
       "required": ["fromEntity", "toEntity", "role", "lowerBound", "upperBound", "boundsStated"],
       "properties": {
-        "fromEntity": { "type": "string" },
-        "toEntity": { "type": "string" },
+        "fromEntity": {
+          "description": "Name of an entity, or of an aggregation (its relationship name) that takes part in this relationship.",
+          "type": "string"
+        },
+        "toEntity": {
+          "description": "Name of an entity, or of an aggregation (its relationship name) that takes part in this relationship.",
+          "type": "string"
+        },
         "role": {
           "description": "camelCase navigation name from fromEntity to toEntity, plural when upperBound is many.",
           "type": "string"

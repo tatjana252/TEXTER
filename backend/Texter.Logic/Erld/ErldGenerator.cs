@@ -36,6 +36,11 @@ namespace Texter.Logic.Erld
         {
             private readonly StringBuilder _sb = new();
             private readonly Dictionary<string, Entity> _entities = model.Entities.ToDictionary(e => e.Id);
+
+            // Ends of relationships: entities and aggregations (an aggregation takes part in other relationships).
+            private readonly Dictionary<string, string> _endNames = model.Entities.Select(e => (e.Id, e.Name))
+                .Concat(model.Relationships.Where(r => r.IsAggregation).Select(r => (r.Id, r.Name)))
+                .ToDictionary(x => x.Id, x => x.Name);
             private readonly HashSet<string> _subtypeIds = model.Generalizations.SelectMany(g => g.SubEntityIds).ToHashSet();
 
             public string Write(string modelName)
@@ -45,13 +50,18 @@ namespace Texter.Logic.Erld
                 Section("entities");
                 foreach (var entity in model.Entities) WriteEntity(entity);
 
-                var relationships = model.Relationships.Where(r => !r.IsAggregation).ToList();
+                var relationships = model.Relationships.Where(r => !r.IsAggregation && !UsesAggregation(r)).ToList();
                 if (relationships.Count > 0) Section("relationships");
                 foreach (var relationship in relationships) WriteRelationship(relationship);
 
                 var aggregations = model.Relationships.Where(r => r.IsAggregation).ToList();
                 if (aggregations.Count > 0) Section("aggregations");
                 foreach (var aggregation in aggregations) WriteRelationship(aggregation);
+
+                // After the aggregations they refer to.
+                var ofAggregations = model.Relationships.Where(r => !r.IsAggregation && UsesAggregation(r)).ToList();
+                if (ofAggregations.Count > 0) Section("relationships of aggregations");
+                foreach (var relationship in ofAggregations) WriteRelationship(relationship);
 
                 if (model.Generalizations.Count > 0) Section("specializations");
                 foreach (var generalization in model.Generalizations) WriteSpecialization(generalization);
@@ -121,7 +131,7 @@ namespace Texter.Logic.Erld
             {
                 var assumed = mapping.IsAssumed && includeAttribution ? "@assumed " : "";
                 // The weak entity exists only with its owner: deleting the owner deletes it.
-                var cascade = relationship.IsWeak && _entities[mapping.CoDomainEntityId].Kind == EntityKind.Weak ? " on delete cascade" : "";
+                var cascade = relationship.IsWeak && _entities.TryGetValue(mapping.CoDomainEntityId, out var coDomain) && coDomain.Kind == EntityKind.Weak ? " on delete cascade" : "";
                 var role = mapping.Role is { Length: > 0 } r ? $" as {Name(r)}" : "";
                 Line($"{Indent}{assumed}{EntityName(mapping.DomainEntityId)} -> {EntityName(mapping.CoDomainEntityId)} {Bounds(mapping)}{role}{cascade};");
             }
@@ -153,7 +163,10 @@ namespace Texter.Logic.Erld
                 return $"{source}@confidence({element.Confidence.ToString().ToLowerInvariant()}) ";
             }
 
-            private string EntityName(string id) => Name(_entities[id].Name);
+            private string EntityName(string id) => Name(_endNames[id]);
+
+            private bool UsesAggregation(Relationship r) =>
+                !_entities.ContainsKey(r.Mapping1.DomainEntityId) || !_entities.ContainsKey(r.Mapping2.DomainEntityId);
 
             private void Section(string title)
             {

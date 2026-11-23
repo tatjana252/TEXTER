@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Options;
+using Texter.Erl;
 using Texter.Logic.Diagram;
+using Texter.Logic.Erld;
 using Texter.Logic.Extraction;
 using Texter.Logic.Llm;
 using Texter.Logic.Traceability;
@@ -129,6 +131,54 @@ namespace Texter.Tests
             Assert.Contains(result.Notes, n => n.Contains("no identifying relationship"));
         }
 
+        [Fact]
+        public async Task Aggregation_takes_part_in_a_relationship()
+        {
+            // The relationship that uses the aggregation comes first in the answer: it must wait for the aggregation.
+            const string answer = """
+                {
+                  "facts": [
+                    { "id": "F1", "sentenceIds": ["S1"], "statement": "a vet examines pets" },
+                    { "id": "F2", "sentenceIds": ["S2"], "statement": "for each examination the date is recorded" },
+                    { "id": "F3", "sentenceIds": ["S3"], "statement": "each examination takes place at one exam spot" }
+                  ],
+                  "entities": [
+                    { "evidence": ["F1"], "name": "Vet", "displayName": null, "isWeak": false, "ownerEntity": "", "weakEvidence": [], "attributes": [], "confidence": "stated", "rationale": "" },
+                    { "evidence": ["F1"], "name": "Pet", "displayName": null, "isWeak": false, "ownerEntity": "", "weakEvidence": [], "attributes": [], "confidence": "stated", "rationale": "" },
+                    { "evidence": ["F3"], "name": "ExamSpot", "displayName": null, "isWeak": false, "ownerEntity": "", "weakEvidence": [], "attributes": [], "confidence": "stated", "rationale": "" }
+                  ],
+                  "relationships": [
+                    { "evidence": ["F3"], "name": "TakesPlaceAt", "displayName": null,
+                      "mapping1": { "fromEntity": "Examination", "toEntity": "ExamSpot", "role": "spot", "lowerBound": 1, "upperBound": 1, "boundsStated": true },
+                      "mapping2": { "fromEntity": "ExamSpot", "toEntity": "Examination", "role": "examinations", "lowerBound": 0, "upperBound": -1, "boundsStated": false },
+                      "isIdentifying": false, "isAggregation": false, "aggregationEvidence": [], "attributes": [], "confidence": "inferred", "rationale": "the spot belongs to the pair (HR9)" },
+                    { "evidence": ["F1"], "name": "Examination", "displayName": null,
+                      "mapping1": { "fromEntity": "Vet", "toEntity": "Pet", "role": "pets", "lowerBound": 0, "upperBound": -1, "boundsStated": true },
+                      "mapping2": { "fromEntity": "Pet", "toEntity": "Vet", "role": "vets", "lowerBound": 0, "upperBound": -1, "boundsStated": true },
+                      "isIdentifying": false, "isAggregation": true, "aggregationEvidence": ["F2"],
+                      "attributes": [ { "evidence": ["F2"], "name": "date", "type": "date", "length": null, "isIdentifier": false, "isMultivalued": false, "isOptional": false, "confidence": "stated", "rationale": "" } ],
+                      "confidence": "inferred", "rationale": "date depends on the pair (HN5)" }
+                  ],
+                  "generalizations": [], "notes": []
+                }
+                """;
+            var extractor = new LlmConceptualModelExtractor(new CannedLlm(answer), new ConfidenceClassifier(Options.Create(new ConfidenceOptions())));
+
+            var result = await extractor.ExtractAsync("A vet examines pets. For each examination the date is recorded. Each examination takes place at one exam spot.");
+            var model = result.Model;
+            var examination = model.Relationships.Single(r => r.Name == "Examination");
+            var takesPlaceAt = model.Relationships.Single(r => r.Name == "TakesPlaceAt");
+
+            Assert.Equal(examination.Id, takesPlaceAt.Mapping1.DomainEntityId);
+            Assert.DoesNotContain(result.Notes, n => n.Contains("unknown"));
+            Assert.Contains(ConvertToDiagram.Convert(model).Links, l => l.From == takesPlaceAt.Id && l.To == examination.Id);
+
+            var code = ErldGenerator.Generate(model, "Clinic");
+            Assert.Empty(ErldSyntax.Validate(code));
+            Assert.Contains("Examination -> ExamSpot [1..1] as spot;", code);
+            Assert.True(code.IndexOf("aggregation Examination", StringComparison.Ordinal) < code.IndexOf("relationship TakesPlaceAt", StringComparison.Ordinal));
+        }
+
         private sealed class CannedLlm(string answer) : ILlmClient
         {
             public Task<string> CompleteJsonAsync(LlmJsonRequest request, CancellationToken cancellationToken = default) => Task.FromResult(answer);
@@ -144,7 +194,7 @@ namespace Texter.Tests
             Assert.Contains(diagram.Nodes, n => n.Category == NodeCategory.Aggregation);
             Assert.Contains(diagram.Nodes, n => n.Category == NodeCategory.WeakRelationship);
             Assert.Contains(diagram.Links, l => l.Category == LinkCategory.Mapping && l.IsAssumed);
-            Assert.Equal(new[] { "F14", "F15" }, diagram.Nodes.Single(n => n.Text == "Borrows").DecisionFactIds);
+            Assert.Equal(new[] { "F14", "F15" }, diagram.Nodes.Single(n => n.Text == "Loan").DecisionFactIds);
         }
     }
 }
