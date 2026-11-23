@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import RequirementsText from '../components/RequirementsText.vue'
 import ErldEditor from '../components/ErldEditor.vue'
-import { levelFor } from '../diagram/confidence'
+import { attributionAt } from '../diagram/lineAttribution'
 import { texterApi } from '../services/texterApi'
 
 const props = defineProps({
@@ -52,27 +52,8 @@ function onEdit(code) {
   validated.value = false
 }
 
-/**
- * Attribution of the current line: its own annotations or, for a declaration,
- * the annotation line right above it.
- */
-const attribution = computed(() => {
-  const lines = erld.value?.code.split('\n') ?? []
-  const parse = (line) => ({
-    sentenceIds: line?.match(/@source\(([^)]*)\)/)?.[1].split(',').map((s) => s.trim()) ?? [],
-    confidence: line?.match(/@confidence\(([^)]*)\)/)?.[1].trim() ?? null
-  })
-  let found = parse(lines[currentLine.value - 1])
-  if (!found.sentenceIds.length && !found.confidence) found = parse(lines[currentLine.value - 2])
-  return found
-})
-
-const spans = computed(() =>
-  props.conceptual.sentences
-    .filter((s) => attribution.value.sentenceIds.includes(s.id))
-    .map((s) => ({ start: s.start, length: s.length }))
-)
-const level = computed(() => (attribution.value.confidence ? levelFor(attribution.value.confidence) : 'High'))
+/** @source / @confidence of the current line (or of the annotation above a declaration). */
+const attribution = computed(() => attributionAt(erld.value?.code, currentLine.value, props.conceptual.sentences))
 </script>
 
 <template>
@@ -84,8 +65,8 @@ const level = computed(() => (attribution.value.confidence ? levelFor(attributio
       <RequirementsText
         :model-value="text"
         readonly
-        :spans="spans"
-        :confidence-level="level"
+        :spans="attribution.spans"
+        :confidence-level="attribution.level"
         :sentences="conceptual.sentences"
         :active-sentence-ids="attribution.sentenceIds"
       />

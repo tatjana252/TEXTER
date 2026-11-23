@@ -2,22 +2,25 @@
 import { computed, ref, watch } from 'vue'
 import ConceptualModelStep from './views/ConceptualModelStep.vue'
 import ErldStep from './views/ErldStep.vue'
+import DdlStep from './views/DdlStep.vue'
 
 const text = ref('')
 const conceptual = ref(null) // step 1 result
 const erld = ref(null) // step 2 result
+const ddl = ref(null) // step 3 result
 const step = ref('conceptual')
 
 // A new conceptual model invalidates the ERLD generated from the previous one.
 watch(conceptual, () => {
   erld.value = null
+  ddl.value = null
   if (!conceptual.value) step.value = 'conceptual'
 })
 
 const steps = computed(() => [
   { id: 'conceptual', label: '1. Conceptual model', enabled: true },
   { id: 'erld', label: '2. ERLD', enabled: !!conceptual.value },
-  { id: 'ddl', label: '3. DDL', enabled: false },
+  { id: 'ddl', label: '3. DDL', enabled: !!erld.value?.code },
   { id: 'erlq', label: '4. ERLQ', enabled: false }
 ])
 </script>
@@ -41,6 +44,7 @@ const steps = computed(() => [
 
     <ConceptualModelStep v-show="step === 'conceptual'" v-model:text="text" v-model:result="conceptual" />
     <ErldStep v-if="step === 'erld' && conceptual" v-model:erld="erld" :text="text" :conceptual="conceptual" />
+    <DdlStep v-if="step === 'ddl' && erld?.code" v-model:ddl="ddl" :text="text" :conceptual="conceptual" :erld-code="erld.code" />
   </div>
 </template>
 

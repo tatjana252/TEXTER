@@ -20,5 +20,8 @@ export const texterApi = {
     post('/api/erld/generate', { model, modelName, includeAttribution }),
 
   /** ERLD source -> { code, errors } */
-  validateErld: (code) => post('/api/erld/validate', { code })
+  validateErld: (code) => post('/api/erld/validate', { code }),
+
+  /** ERLD source -> { sql, errors, warnings } (SQL Server DDL) */
+  generateSqlServerDdl: (code, includeAttribution) => post('/api/ddl/sqlserver', { code, includeAttribution })
 }

@@ -4,22 +4,24 @@ import { computed, ref } from 'vue'
 const props = defineProps({
   modelValue: { type: String, required: true },
   /** [{ line, column, message }] */
-  errors: { type: Array, default: () => [] }
+  errors: { type: Array, default: () => [] },
+  readonly: { type: Boolean, default: false }
 })
 const emit = defineEmits(['update:modelValue', 'line'])
 
 const LINE_HEIGHT = 21
 const textarea = ref(null)
 const gutter = ref(null)
-const lineCount = computed(() => props.modelValue.split('\n').length)
+const lineCount = computed(() => props.modelValue.split(/\r?\n/).length)
 const errorLines = computed(() => new Set(props.errors.map((e) => e.line)))
 
 function syncScroll() {
   gutter.value.scrollTop = textarea.value.scrollTop
 }
 
+// Offsets are in the textarea's value, which has \n line breaks even when the model has \r\n.
 function lineAt(offset) {
-  return props.modelValue.slice(0, offset).split('\n').length
+  return textarea.value.value.slice(0, offset).split('\n').length
 }
 
 function onCaret() {
@@ -34,7 +36,7 @@ function onHover(event) {
 
 /** Moves the caret to the start of a line (e.g. clicked error). */
 function goToLine(line) {
-  const lines = props.modelValue.split('\n')
+  const lines = textarea.value.value.split('\n')
   const offset = lines.slice(0, line - 1).reduce((sum, l) => sum + l.length + 1, 0)
   textarea.value.focus()
   textarea.value.setSelectionRange(offset, offset + (lines[line - 1]?.length ?? 0))
@@ -53,6 +55,7 @@ defineExpose({ goToLine })
     <textarea
       ref="textarea"
       :value="modelValue"
+      :readonly="readonly"
       spellcheck="false"
       wrap="off"
       @input="$emit('update:modelValue', $event.target.value)"

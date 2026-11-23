@@ -7,7 +7,8 @@ atribucijom (svaki element vezan za tekst iz kog je nastao) i procenom sigurnost
 |---|---|
 | 1. Tekst → PMER dijagram sa atribucijom | ✅ |
 | 2. PMER → ERLD (generisanje, izmena, provera sintakse) | ✅ |
-| 3. ERLD → DDL (SQL Server, MongoDB) | ⏳ |
+| 3. ERLD → DDL: SQL Server | ✅ |
+| 3. ERLD → DDL: MongoDB | ⏳ |
 | 4. ERLQ upiti nad fizičkim skladištem | ⏳ |
 
 ## Struktura
@@ -24,12 +25,16 @@ backend/                     .NET 10
     Llm/                     ILlmClient, OpenAiClient (Structured Outputs), FakeLlmClient
     Extraction/              LlmConceptualModelExtractor - jedan poziv LLM-u
       Resources/             system prompt (.md) i JSON šema odgovora
-    Traceability/            SentenceSplitter, EvidenceLocator (citat → pozicija), ConfidenceClassifier
+    Traceability/            SentenceSplitter, ConfidenceClassifier
     Diagram/                 ConvertToDiagram (PMER DER notacija)
     Erld/                    ErldGenerator (PMER model → ERLD kod)
   Texter.Erl/                ANTLR gramatike ERL jezika (Grammar/), generisani parser (Generated/), ErldSyntax
+    Semantics/               ErldModelBuilder: ERLD → semantički model (razrešena imena i tipovi, kratki → dugi zapis,
+                             greške i upozorenja sa redom i kolonom)
+    Ddl/                     SqlServerDdlGenerator, SqlExpression (izrazi računa entiteta → T-SQL)
   Texter.Api/                POST /api/conceptualmodel/extract → { model, diagram, sentences, notes }
                              POST /api/erld/generate, /api/erld/validate → { code, errors }
+                             POST /api/ddl/sqlserver { code } → { sql, errors, warnings }
   Texter.Tests/              xUnit
 frontend/                    Vue 3 + Vite + GoJS
 ```
@@ -66,6 +71,31 @@ atributi, uloge, `boundsStated`, disjoint/total za IS-A, napomene).
 - Svaki generisani ili ručno izmenjeni ERLD proverava se parserom generisanim iz `ERLD.g4`.
 - `ERLCommon.g4` (izrazi, imena, leksika) je rekonstruisan na osnovu ERLD gramatike i primera
   `Samples/preduzece.erld`, koji se parsira bez grešaka – zameniti originalom ako se razlikuje.
+
+## Korak 3: ERLD → DDL (SQL Server)
+
+DDL se pravi iz ERLD koda (sa ručnim izmenama iz koraka 2): parser → `ErldModelBuilder` (semantička analiza) →
+relaciona šema → SQL. Pravila preslikavanja:
+
+| ERLD | SQL Server |
+|---|---|
+| entitet, agregacija, kategorija | tabela; `key` → PRIMARY KEY (bez ključa: surogat `IDENTITY`), `auto(s, i)` → `IDENTITY(s, i)` |
+| slab entitet | PK = ključ vlasnika (FK) + parcijalni ključ |
+| veza sa gornjom granicom 1 na jednoj strani | FK na toj strani, `NOT NULL` kad je donja granica 1; 1:1 → jedinstven FK |
+| veza M:N bez atributa | spojna tabela, PK = oba FK |
+| agregacija | tabela sa oba FK; bez sopstvenog ključa PK = FK-ovi (ili FK strane sa gornjom granicom 1), sa ključem UNIQUE par; može učestvovati u drugim vezama |
+| IS-A | **jedna tabela za celu hijerarhiju**: diskriminator (disjoint, `total` → NOT NULL) ili `bit` kolona po podtipu (overlapping); CHECK vezuje kolone podtipa za diskriminator |
+| višeznačni atribut | tabela (ključ vlasnika, vrednost), ON DELETE CASCADE |
+| složeni atribut | kolona po delu |
+| domen, enum, between/like/in/poređenje/check | tip + CHECK |
+| `default`, `derived`, lokalni `check` | DEFAULT, izračunata kolona, CHECK – kad ih red može sam da izračuna |
+| `on delete/update ...` uz preslikavanje, strukturno pravilo | referencijalna akcija FK; podrazumevano restrict (NO ACTION) |
+
+SQL Server odbija cikluse i više putanja kaskade; takva akcija se vraća na NO ACTION uz upozorenje. Ono što tabela
+sama ne može da obezbedi (donja granica na strani "više", gornja granica > 1, provere prelaza `on update check`,
+navigacija i agregati, imenovana ograničenja, pravila `reject`) navedeno je na kraju skripta kao posao za trigere.
+Atribucija (`@source`, `@confidence`) prelazi u SQL komentare, pa prelaz preko tabele ili kolone u koraku 3 označava
+rečenice zahteva. Testovi izvršavaju generisani DDL na LocalDB-u (ako ga nema, samo ga generišu).
 
 ## Pokretanje
 
