@@ -15,3 +15,6 @@ __pycache__/
 # Secrets
 appsettings.*.local.json
 .env
+
+# ANTLR tool (downloaded by generate-parser)
+backend/Texter.Erl/tools/

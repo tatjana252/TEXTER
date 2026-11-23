@@ -1,5 +1,5 @@
-# Regenerates Generated/*.cs from Grammar/ERLD.g4 (+ ERLCommon.g4).
-# Run only after changing the grammar. Needs Java 11+; the ANTLR tool is downloaded on first use.
+# Regenerates Generated/*.cs from Grammar/ERLD.g4 and Grammar/ERLQ.g4 (both import ERLCommon.g4).
+# Run only after changing a grammar. Needs Java 11+; the ANTLR tool is downloaded on first use.
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 
@@ -11,6 +11,9 @@ if (-not (Test-Path $jar)) {
 }
 
 Remove-Item -Recurse -Force Generated -ErrorAction SilentlyContinue
-java -jar $jar -Dlanguage=CSharp -visitor -no-listener -package Texter.Erl.Grammar -lib Grammar -o Generated -Xexact-output-dir Grammar/ERLD.g4
+foreach ($grammar in 'ERLD', 'ERLQ') {
+    java -jar $jar -encoding UTF-8 -Dlanguage=CSharp -visitor -no-listener -package Texter.Erl.Grammar -lib Grammar -o Generated -Xexact-output-dir "Grammar/$grammar.g4"
+    if ($LASTEXITCODE -ne 0) { throw "ANTLR failed for $grammar.g4" }
+}
 Remove-Item Generated/*.interp, Generated/*.tokens
-Write-Host 'Parser regenerated in Generated/'
+Write-Host 'Parsers regenerated in Generated/'

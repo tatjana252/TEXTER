@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Texter.Logic.Extraction;
 using Texter.Logic.Llm;
+using Texter.Logic.Sandbox;
 using Texter.Logic.Traceability;
 
 namespace Texter.Logic
@@ -12,6 +13,8 @@ namespace Texter.Logic
         {
             services.Configure<LlmOptions>(configuration.GetSection(LlmOptions.SectionName));
             services.Configure<ConfidenceOptions>(configuration.GetSection(ConfidenceOptions.SectionName));
+            services.Configure<SandboxOptions>(configuration.GetSection(SandboxOptions.SectionName));
+            services.Configure<DeployOptions>(configuration.GetSection(DeployOptions.SectionName));
 
             var provider = configuration.GetSection(LlmOptions.SectionName)[nameof(LlmOptions.Provider)];
             if (string.Equals(provider, "Fake", StringComparison.OrdinalIgnoreCase))
@@ -22,6 +25,9 @@ namespace Texter.Logic
             services.AddSingleton<ConfidenceClassifier>();
 
             services.AddScoped<IConceptualModelExtractor, LlmConceptualModelExtractor>();
+            services.AddSingleton<SandboxDatabase>();
+            services.AddSingleton<DatabaseDeployer>();
+            services.AddScoped<SampleDataGenerator>();
             return services;
         }
     }

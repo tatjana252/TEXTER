@@ -5,11 +5,13 @@ using Texter.Erl.Semantics;
 using Texter.Logic.Erld;
 using Texter.Logic.Extraction;
 using Texter.Logic.Llm;
+using Texter.Logic.Sandbox;
 using Texter.Logic.Traceability;
 using Xunit.Abstractions;
 
 namespace Texter.Tests
 {
+    [Collection("LocalDB")]
     public class DdlTests(ITestOutputHelper output)
     {
         private static readonly string SamplesDir = Path.Combine(AppContext.BaseDirectory, "Samples");
@@ -68,6 +70,31 @@ namespace Texter.Tests
             Assert.Contains(("Employee", "sectionId", "Section"), db.ForeignKeys);
             // M:N aggregation with attributes.
             Assert.Equal(new[] { "membershipNumber", "isbn", "copyNumber" }, db.PrimaryKey("Loan"));
+        }
+
+        [Fact]
+        public async Task Canned_sample_data_loads_into_the_library()
+        {
+            var erld = await LibraryErldAsync();
+            var ddl = SqlServerDdlGenerator.Generate(ErldModelBuilder.Analyze(erld).Model!);
+            var llm = new FakeLlmClient(Options.Create(new LlmOptions { FakeResponsesDir = Path.Combine(SamplesDir, "fake") }));
+            var data = await new SampleDataGenerator(llm).GenerateAsync("", ddl.Sql, ddl.Map);
+            var sandbox = new SandboxDatabase(Options.Create(new SandboxOptions()));
+            try
+            {
+                var result = await sandbox.LoadAsync(ddl.Sql, ddl.Map, data);
+                Assert.Empty(result.Rejected);
+                Assert.Equal(6, result.Tables.Single(t => t.Name == "Loan").Rows);
+            }
+            catch (SandboxException e)
+            {
+                output.WriteLine("LocalDB is not available: " + e.Message);
+                return;
+            }
+            finally
+            {
+                try { await sandbox.DropAsync(ddl.Sql); } catch (SandboxException) { }
+            }
         }
 
         [Fact]
@@ -145,6 +172,64 @@ namespace Texter.Tests
         }
 
         [Fact]
+        public void Script_with_drop_runs_again_in_the_same_database()
+        {
+            var model = ErldModelBuilder.Analyze(File.ReadAllText(Path.Combine(SamplesDir, "preduzece.erld"))).Model!;
+            var sql = SqlServerDdlGenerator.Generate(model, dropExisting: true).Sql;
+            Assert.Contains("DROP TABLE IF EXISTS [RadnoMesto], [Sluzba], [Radnik]", sql);
+
+            // In between, someone else's table points at one of ours: its foreign key must not block the drop.
+            var db = LocalDb.Run(sql, output,
+                "CREATE TABLE [Tudja] ([id] int PRIMARY KEY, [rId] int REFERENCES [Radnik] ([rId]));",
+                sql);
+            if (db is null) return;
+
+            Assert.Contains("Radnik", db.Tables);
+            Assert.Contains("Tudja", db.Tables);
+            Assert.DoesNotContain(db.ForeignKeys, f => f.Table == "Tudja");
+        }
+
+        [Fact]
+        public async Task Deploy_creates_the_database_and_reports_existing_tables()
+        {
+            var model = ErldModelBuilder.Analyze(File.ReadAllText(Path.Combine(SamplesDir, "preduzece.erld"))).Model!;
+            var deployer = new DatabaseDeployer(Options.Create(new DeployOptions()));
+            var name = "Texter Deploy " + Guid.NewGuid().ToString("N")[..8];
+            try
+            {
+                var first = await deployer.DeployAsync(name, SqlServerDdlGenerator.Generate(model).Sql);
+                Assert.True(first.Created);
+                Assert.Equal(7, first.Tables.Count);
+
+                // Again without drop: the tables exist, and the message says what to do.
+                var again = await Assert.ThrowsAsync<SandboxException>(() => deployer.DeployAsync(name, SqlServerDdlGenerator.Generate(model).Sql));
+                Assert.Contains("drop existing tables", again.Message);
+
+                var replaced = await deployer.DeployAsync(name, SqlServerDdlGenerator.Generate(model, dropExisting: true).Sql);
+                Assert.False(replaced.Created);
+                Assert.Equal(7, replaced.Tables.Count);
+            }
+            catch (SandboxException e) when (e.Message.Contains("network-related") || e.Message.Contains("LocalDB"))
+            {
+                output.WriteLine("LocalDB is not available: " + e.Message);
+            }
+            finally
+            {
+                LocalDb.Drop(name);
+            }
+        }
+
+        [Theory]
+        [InlineData("Biblioteka", true)]
+        [InlineData("Radna baza_2", true)]
+        [InlineData("Školska-baza", true)]
+        [InlineData("1baza", false)]
+        [InlineData("a]; DROP DATABASE x; --", false)]
+        [InlineData("", false)]
+        public void Database_names_are_checked(string name, bool valid) =>
+            Assert.Equal(valid, DatabaseDeployer.IsValidName(name));
+
+        [Fact]
         public void Semantic_errors_have_positions()
         {
             const string erld = """
@@ -176,7 +261,8 @@ namespace Texter.Tests
             public string DeleteAction(string table, string parent) => _deleteActions[(table, parent)];
             public bool IsIdentity(string table, string column) => _identity.Contains((table, column));
 
-            public static LocalDb? Run(string sql, ITestOutputHelper output)
+            /// <param name="more">Further scripts run after the first, in the same database.</param>
+            public static LocalDb? Run(string sql, ITestOutputHelper output, params string[] more)
             {
                 const string server = @"Server=(localdb)\MSSQLLocalDB;Integrated Security=true;TrustServerCertificate=true;Connect Timeout=60";
                 var database = "texter_test_" + Guid.NewGuid().ToString("N")[..12];
@@ -199,7 +285,10 @@ namespace Texter.Tests
                     {
                         using var db = new SqlConnection(server + $";Database={database}");
                         db.Open();
+                        // As in sqlcmd or SSMS with other settings: the script must set what it needs itself.
+                        Exec(db, "SET QUOTED_IDENTIFIER OFF; SET ANSI_NULLS OFF; SET ARITHABORT OFF;");
                         Exec(db, sql);
+                        foreach (var next in more) Exec(db, next);
                         return Read(db);
                     }
                     finally
@@ -207,6 +296,21 @@ namespace Texter.Tests
                         SqlConnection.ClearAllPools();
                         Exec(master, $"ALTER DATABASE [{database}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [{database}]");
                     }
+                }
+            }
+
+            public static void Drop(string database)
+            {
+                try
+                {
+                    using var master = new SqlConnection(@"Server=(localdb)\MSSQLLocalDB;Integrated Security=true;TrustServerCertificate=true;Connect Timeout=60");
+                    master.Open();
+                    SqlConnection.ClearAllPools();
+                    Exec(master, $"IF DB_ID(N'{database}') IS NOT NULL BEGIN ALTER DATABASE [{database}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [{database}] END");
+                }
+                catch (SqlException)
+                {
+                    // LocalDB not available: nothing was created
                 }
             }
 

@@ -12,14 +12,45 @@ const props = defineProps({
   /** ERLD source from step 2 (generated or edited) */
   erldCode: { type: String, required: true }
 })
-/** { sql, errors, warnings, erldCode, includeAttribution } */
+/** { sql, errors, warnings, erldCode, includeAttribution, dropExisting } */
 const ddl = defineModel('ddl', { type: Object, default: null })
 
 const includeAttribution = ref(ddl.value?.includeAttribution ?? true)
+const dropExisting = ref(ddl.value?.dropExisting ?? false)
 const loading = ref(false)
 const error = ref('')
 const currentLine = ref(0)
 const copied = ref(false)
+
+// Database to create on SQL Server; remembered in this browser only.
+const databaseName = ref(readName())
+const deploying = ref(false)
+const deployed = ref(null) // { database, server, created, tables, error }
+
+function readName() {
+  try {
+    return localStorage.getItem('texter.databaseName') ?? ''
+  } catch {
+    return ''
+  }
+}
+
+async function deploy() {
+  deploying.value = true
+  deployed.value = null
+  try {
+    localStorage.setItem('texter.databaseName', databaseName.value.trim())
+  } catch {
+    // no storage (private window): the name is just not remembered
+  }
+  try {
+    deployed.value = await texterApi.deploySqlServerDdl(props.erldCode, databaseName.value.trim(), includeAttribution.value, dropExisting.value)
+  } catch (e) {
+    deployed.value = { error: e.message }
+  } finally {
+    deploying.value = false
+  }
+}
 
 // The ERLD may have been edited since the DDL was generated.
 onMounted(() => {
@@ -30,8 +61,8 @@ async function generate() {
   loading.value = true
   error.value = ''
   try {
-    const result = await texterApi.generateSqlServerDdl(props.erldCode, includeAttribution.value)
-    ddl.value = { ...result, erldCode: props.erldCode, includeAttribution: includeAttribution.value }
+    const result = await texterApi.generateSqlServerDdl(props.erldCode, includeAttribution.value, dropExisting.value)
+    ddl.value = { ...result, erldCode: props.erldCode, includeAttribution: includeAttribution.value, dropExisting: dropExisting.value }
   } catch (e) {
     error.value = e.message
   } finally {
@@ -78,11 +109,35 @@ const hasErrors = computed(() => (ddl.value?.errors.length ?? 0) > 0)
     <section class="panel">
       <div class="toolbar">
         <h2>SQL Server DDL</h2>
-        <label class="check"><input v-model="includeAttribution" type="checkbox" /> attribution</label>
+        <label class="check"><input v-model="includeAttribution" type="checkbox" @change="generate" /> attribution</label>
+        <label
+          class="check"
+          title="Starts the script by dropping its tables (and foreign keys to them) if they exist, so it can be run again in the same database. Their data is lost."
+        >
+          <input v-model="dropExisting" type="checkbox" @change="generate" /> drop existing tables
+        </label>
         <span class="spacer" />
         <button :disabled="loading" @click="generate">{{ loading ? 'Generating…' : 'Regenerate' }}</button>
         <button :disabled="!ddl?.sql" @click="copy">{{ copied ? 'Copied' : 'Copy' }}</button>
         <button class="primary" :disabled="!ddl?.sql" @click="download">Download .sql</button>
+      </div>
+
+      <div v-if="ddl?.sql" class="deploy">
+        <input
+          v-model="databaseName"
+          class="database-name"
+          placeholder="Database name, e.g. Biblioteka"
+          title="Created on SQL Server if it does not exist; the DDL above is run in it"
+          @keydown.enter="databaseName.trim() && deploy()"
+        />
+        <button class="primary" :disabled="deploying || !databaseName.trim()" @click="deploy">
+          {{ deploying ? 'Creating…' : 'Create database' }}
+        </button>
+        <span v-if="deployed?.error" class="deploy-error">{{ deployed.error }}</span>
+        <span v-else-if="deployed" class="deploy-ok">
+          ✓ {{ deployed.created ? 'Created' : 'Updated' }} <b>{{ deployed.database }}</b> on {{ deployed.server }}:
+          {{ deployed.tables.length }} tables
+        </span>
       </div>
 
       <div v-if="hasErrors" class="errors-panel">
@@ -122,6 +177,28 @@ const hasErrors = computed(() => (ddl.value?.errors.length ?? 0) > 0)
   margin: 0;
   font-size: 13px;
   color: var(--muted);
+}
+.deploy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.database-name {
+  width: 220px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 14px;
+}
+.deploy-ok {
+  color: #1e6b2e;
+}
+.deploy-error {
+  color: #b02a2a;
+  flex-basis: 100%;
 }
 .errors-panel {
   flex: 1;

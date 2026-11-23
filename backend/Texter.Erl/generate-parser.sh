@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Regenerates Generated/*.cs from Grammar/ERLD.g4 (+ ERLCommon.g4).
-# Run only after changing the grammar. Needs Java 11+; the ANTLR tool is downloaded on first use.
+# Regenerates Generated/*.cs from Grammar/ERLD.g4 and Grammar/ERLQ.g4 (both import ERLCommon.g4).
+# Run only after changing a grammar. Needs Java 11+; the ANTLR tool is downloaded on first use.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -12,6 +12,8 @@ if [ ! -f "$jar" ]; then
 fi
 
 rm -rf Generated
-java -jar "$jar" -Dlanguage=CSharp -visitor -no-listener -package Texter.Erl.Grammar -lib Grammar -o Generated -Xexact-output-dir Grammar/ERLD.g4
+for grammar in ERLD ERLQ; do
+  java -jar "$jar" -encoding UTF-8 -Dlanguage=CSharp -visitor -no-listener -package Texter.Erl.Grammar -lib Grammar -o Generated -Xexact-output-dir "Grammar/$grammar.g4"
+done
 rm -f Generated/*.interp Generated/*.tokens
-echo "Parser regenerated in Generated/"
+echo "Parsers regenerated in Generated/"

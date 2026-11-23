@@ -23,10 +23,14 @@ namespace Texter.Erl.Ddl
     /// </summary>
     public static class SqlServerDdlGenerator
     {
-        public static DdlResult Generate(ErldModel model, bool includeAttribution = true) =>
-            new Builder(model, includeAttribution).Build();
+        /// <param name="dropExisting">
+        /// Start the script by dropping the tables it creates (and every foreign key to or from them), so that it can
+        /// be run again in the same database. It deletes their data.
+        /// </param>
+        public static DdlResult Generate(ErldModel model, bool includeAttribution = true, bool dropExisting = false) =>
+            new Builder(model, includeAttribution, dropExisting).Build();
 
-        public record DdlResult(string Sql, List<string> Warnings);
+        public record DdlResult(string Sql, List<string> Warnings, RelationalMap Map);
 
         // ------------------------------------------------------------------ relational schema
 
@@ -76,7 +80,7 @@ namespace Texter.Erl.Ddl
 
         // ------------------------------------------------------------------ builder
 
-        private sealed class Builder(ErldModel model, bool includeAttribution)
+        private sealed class Builder(ErldModel model, bool includeAttribution, bool dropExisting)
         {
             private readonly Dictionary<TypeDef, Table> _tables = new();
             private readonly Dictionary<TypeDef, List<KeyColumn>> _keys = new();
@@ -85,6 +89,8 @@ namespace Texter.Erl.Ddl
             private readonly List<string> _manual = new();
             private readonly List<string> _warnings = new();
             private readonly HashSet<string> _constraintNames = new(StringComparer.OrdinalIgnoreCase);
+            private readonly RelationalMap _map = new();
+            private readonly Dictionary<TypeDef, List<(string Column, string Value)>> _conditions = new();
 
             public DdlResult Build()
             {
@@ -99,12 +105,13 @@ namespace Texter.Erl.Ddl
 
                 foreach (var type in roots) PrimaryKey(type);
                 foreach (var type in roots) Attributes(type);
-                foreach (var spec in model.Specializations.Where(s => s.Super.SubtypeOf is null)) Hierarchy(spec, parentCondition: null);
+                foreach (var spec in model.Specializations.Where(s => s.Super.SubtypeOf is null)) Hierarchy(spec, parentCondition: null, parentConditions: new());
                 foreach (var r in model.Relationships) Relationship(r);
                 foreach (var category in model.Categories) Category(category);
                 ApplyRules();
                 CheckCascadePaths();
-                return new DdlResult(Render(), _warnings);
+                FillMap();
+                return new DdlResult(Render(), _warnings, _map);
             }
 
             private Table NewTable(string name, string kind, Annotations annotations)
@@ -154,6 +161,9 @@ namespace Texter.Erl.Ddl
                             var ownerMapping = r.Mappings.First(m => m.Domain != type);
                             var owner = ownerMapping.Domain;
                             var fk = AddForeignKey(table, owner, ownerMapping.Role ?? owner.Name, nullable: false, r, isKey: true);
+                            var storage = new RelationshipStorage { Kind = RelationshipStorageKind.ForeignKey, Holder = r.Mappings.First(m => m.Domain == type) };
+                            storage.Columns.AddRange(fk.Columns);
+                            _map.Relationships[r] = storage;
                             fk.OnDelete = Action(ownerMapping, "delete");
                             fk.OnUpdate = Action(ownerMapping, "update");
                             keys.AddRange(fk.Columns.Select(c => new KeyColumn(c, table.Columns.First(x => x.Name == c).Type)));
@@ -165,6 +175,7 @@ namespace Texter.Erl.Ddl
                     case TypeKind.Aggregation when !type.Keys.Any():
                         var rel = type.Relationship!;
                         var fks = rel.Mappings.Select(m => (Mapping: m, Fk: ParticipantKey(table, rel, m))).ToList();
+                        LinkStorage(rel, table, fks.Select(x => (x.Mapping, x.Fk)));
                         // X -> Y [..1]: each X takes part at most once, so X alone identifies the instance.
                         var single = fks.Where(x => !x.Mapping.IsMany).ToList();
                         var pk = single.Count > 0 ? single[0].Fk.Columns : fks.SelectMany(x => x.Fk.Columns).ToList();
@@ -176,6 +187,7 @@ namespace Texter.Erl.Ddl
                         keys.AddRange(KeyAttributes(table, type.Keys));
                         var r2 = type.Relationship!;
                         var participants = r2.Mappings.Select(m => (Mapping: m, Fk: ParticipantKey(table, r2, m))).ToList();
+                        LinkStorage(r2, table, participants.Select(x => (x.Mapping, x.Fk)));
                         var one = participants.Where(x => !x.Mapping.IsMany).ToList();
                         if (one.Count > 0)
                             foreach (var p in one) table.Uniques.Add((ConstraintName("UQ", table.Name, p.Fk.Parent.Name), p.Fk.Columns));
@@ -255,6 +267,7 @@ namespace Texter.Erl.Ddl
                     }
                     column.Computed = $"CAST({expr} AS {column.Type})";
                     table.Columns.Add(column);
+                    _map.Columns[a] = column.Name;
                     return new List<Column> { column };
                 }
 
@@ -284,6 +297,7 @@ namespace Texter.Erl.Ddl
                     if (column.Default is null) Manual($"{table.Name}.{name}: default '{ErldModelBuilder.Source(a.Default).Trim()}' is not a constant expression; not generated.");
                 }
                 table.Columns.Add(column);
+                _map.Columns[a] = column.Name;
                 ValueChecks(table, column, a);
                 return new List<Column> { column };
             }
@@ -337,6 +351,7 @@ namespace Texter.Erl.Ddl
                 single.Constraints.AddRange(a.Constraints);
                 var value = AttributeColumns(table, single, nullable: false);
                 table.PrimaryKey.AddRange(fk.Columns.Concat(value.Select(v => v.Name)));
+                _map.Multivalued[a] = new MultivaluedStorage(table.Name, fk.Columns.ToList(), value[0].Name);
             }
 
             // -------------------------------------------------------------- IS-A
@@ -345,7 +360,7 @@ namespace Texter.Erl.Ddl
             /// Subtypes go into the root's table. Disjoint: one discriminator column; overlapping: a bit per subtype.
             /// Subtype columns are nullable, and a CHECK ties them to the discriminator.
             /// </summary>
-            private void Hierarchy(SpecializationDef spec, string? parentCondition)
+            private void Hierarchy(SpecializationDef spec, string? parentCondition, List<(string Column, string Value)> parentConditions)
             {
                 var table = TableOf(spec.Super);
                 var conditions = new Dictionary<TypeDef, string>();
@@ -369,7 +384,11 @@ namespace Texter.Erl.Ddl
                         AddCheck(table, column.Name + "Branch", spec.IsTotal
                             ? $"({parentCondition} AND {q} IS NOT NULL) OR (NOT ({parentCondition}) AND {q} IS NULL)"
                             : $"{parentCondition} OR {q} IS NULL", null);
-                    for (var i = 0; i < spec.Subtypes.Count; i++) conditions[spec.Subtypes[i].Type] = $"{q} = {values[i]}";
+                    for (var i = 0; i < spec.Subtypes.Count; i++)
+                    {
+                        conditions[spec.Subtypes[i].Type] = $"{q} = {values[i]}";
+                        _conditions[spec.Subtypes[i].Type] = parentConditions.Append((column.Name, values[i])).ToList();
+                    }
                 }
                 else
                 {
@@ -385,6 +404,7 @@ namespace Texter.Erl.Ddl
                         table.Columns.Add(column);
                         flags.Add($"{Q(column.Name)} = 1");
                         conditions[sub] = $"{Q(column.Name)} = 1";
+                        _conditions[sub] = parentConditions.Append((column.Name, "1")).ToList();
                         if (parentCondition is not null) AddCheck(table, column.Name + "Branch", $"{parentCondition} OR {Q(column.Name)} = 0", null);
                     }
                     if (spec.IsTotal)
@@ -410,7 +430,7 @@ namespace Texter.Erl.Ddl
                         }
                     }
                     Checks(table, sub);
-                    foreach (var nested in model.Specializations.Where(s => s.Super == sub)) Hierarchy(nested, condition);
+                    foreach (var nested in model.Specializations.Where(s => s.Super == sub)) Hierarchy(nested, condition, _conditions[sub]);
                 }
             }
 
@@ -445,6 +465,9 @@ namespace Texter.Erl.Ddl
 
                 var table = TableOf(holder.Domain);
                 var fk = AddForeignKey(table, holder.CoDomain, holder.Role ?? holder.CoDomain.Name, nullable: holder.Lower == 0, r, isKey: false);
+                var storage = new RelationshipStorage { Kind = RelationshipStorageKind.ForeignKey, Holder = holder };
+                storage.Columns.AddRange(fk.Columns);
+                _map.Relationships[r] = storage;
                 fk.OnDelete = Action(other, "delete");
                 fk.OnUpdate = Action(other, "update");
                 SubtypeComment(fk, holder.Domain, holder.CoDomain);
@@ -472,6 +495,7 @@ namespace Texter.Erl.Ddl
             {
                 var table = NewTable(r.Name, "M:N relationship", r.Annotations);
                 var fks = r.Mappings.Select(m => ParticipantKey(table, r, m)).ToList();
+                LinkStorage(r, table, r.Mappings.Zip(fks));
                 table.PrimaryKey.AddRange(fks.SelectMany(f => f.Columns));
                 foreach (var m in r.Mappings)
                 {
@@ -527,6 +551,25 @@ namespace Texter.Erl.Ddl
             /// <summary>Action on the co-domain when the domain is deleted / updated (from the mapping).</summary>
             private static StructuralAction Action(MappingDef m, string @event) =>
                 m.Actions.Where(a => a.Event == @event).Select(a => a.Action).DefaultIfEmpty(StructuralAction.Restrict).First();
+
+            private void LinkStorage(RelationshipDef r, Table table, IEnumerable<(MappingDef Mapping, ForeignKey Fk)> ends)
+            {
+                var storage = new RelationshipStorage { Kind = RelationshipStorageKind.LinkTable, Table = table.Name };
+                foreach (var (mapping, fk) in ends) storage.EndColumns[mapping] = fk.Columns.ToList();
+                _map.Relationships[r] = storage;
+            }
+
+            private void FillMap()
+            {
+                foreach (var type in model.Types)
+                    _map.Types[type] = new TypeStorage(TableOf(type).Name, PrimaryKey(type).Select(k => k.Name).ToList(),
+                        _conditions.GetValueOrDefault(type) ?? new List<(string, string)>());
+                foreach (var t in _order)
+                    _map.Tables.Add(new TableInfo(t.Name,
+                        t.Columns.Select(c => new ColumnInfo(c.Name, c.Type, c.Nullable, c.Identity is not null, c.Computed is not null, c.Default is not null)).ToList(),
+                        t.PrimaryKey.ToList(),
+                        t.ForeignKeys.Select(f => new ForeignKeyInfo(f.Columns.ToList(), f.Parent.Name, f.ParentColumns.ToList())).ToList()));
+            }
 
             // -------------------------------------------------------------- categories
 
@@ -640,6 +683,32 @@ namespace Texter.Erl.Ddl
                 var sb = new StringBuilder();
                 sb.AppendLine($"-- SQL Server DDL for model {model.Name}, generated by TEXTER from ERLD.");
                 sb.AppendLine("-- Tables first, then foreign keys, unique indexes and what needs a trigger.");
+                sb.AppendLine();
+                // Filtered indexes and computed columns need these; clients such as sqlcmd (or SSMS with other
+                // settings) start with QUOTED_IDENTIFIER off, and CREATE INDEX then fails (Msg 1934).
+                sb.AppendLine("SET ANSI_NULLS ON;");
+                sb.AppendLine("SET QUOTED_IDENTIFIER ON;");
+                sb.AppendLine("SET ANSI_PADDING ON;");
+                sb.AppendLine("SET ANSI_WARNINGS ON;");
+                sb.AppendLine("SET ARITHABORT ON;");
+                sb.AppendLine("SET CONCAT_NULL_YIELDS_NULL ON;");
+                sb.AppendLine("SET NUMERIC_ROUNDABORT OFF;");
+
+                if (dropExisting)
+                {
+                    // Foreign keys first (also those of other tables pointing here, which would block the drop).
+                    var tables = string.Join(", ", _order.Select(t => $"OBJECT_ID(N'{Q(t.Name).Replace("'", "''")}')"));
+                    sb.AppendLine();
+                    sb.AppendLine("-- ---------- drop the tables of this script if they exist (their data is lost) ----------");
+                    sb.AppendLine("DECLARE @dropForeignKeys nvarchar(max) = N'';");
+                    sb.AppendLine("SELECT @dropForeignKeys += N'ALTER TABLE ' + QUOTENAME(OBJECT_SCHEMA_NAME(parent_object_id)) + N'.' + QUOTENAME(OBJECT_NAME(parent_object_id))");
+                    sb.AppendLine("    + N' DROP CONSTRAINT ' + QUOTENAME(name) + N';'");
+                    sb.AppendLine("FROM sys.foreign_keys");
+                    sb.AppendLine($"WHERE referenced_object_id IN ({tables})");
+                    sb.AppendLine($"   OR parent_object_id IN ({tables});");
+                    sb.AppendLine("EXEC sp_executesql @dropForeignKeys;");
+                    sb.AppendLine($"DROP TABLE IF EXISTS {string.Join(", ", _order.Select(t => Q(t.Name)))};");
+                }
 
                 foreach (var table in _order)
                 {

@@ -9,7 +9,7 @@ atribucijom (svaki element vezan za tekst iz kog je nastao) i procenom sigurnost
 | 2. PMER → ERLD (generisanje, izmena, provera sintakse) | ✅ |
 | 3. ERLD → DDL: SQL Server | ✅ |
 | 3. ERLD → DDL: MongoDB | ⏳ |
-| 4. ERLQ upiti nad fizičkim skladištem | ⏳ |
+| 4. ERLQ upiti nad fizičkim skladištem (SQL Server) | ✅ |
 
 ## Struktura
 
@@ -28,13 +28,17 @@ backend/                     .NET 10
     Traceability/            SentenceSplitter, ConfidenceClassifier
     Diagram/                 ConvertToDiagram (PMER DER notacija)
     Erld/                    ErldGenerator (PMER model → ERLD kod)
+    Sandbox/                 SandboxDatabase (LocalDB baza iz DDL-a), SampleDataGenerator (LLM probni podaci)
   Texter.Erl/                ANTLR gramatike ERL jezika (Grammar/), generisani parser (Generated/), ErldSyntax
     Semantics/               ErldModelBuilder: ERLD → semantički model (razrešena imena i tipovi, kratki → dugi zapis,
                              greške i upozorenja sa redom i kolonom)
-    Ddl/                     SqlServerDdlGenerator, SqlExpression (izrazi računa entiteta → T-SQL)
+    Ddl/                     SqlServerDdlGenerator, SqlExpression (izrazi računa entiteta → T-SQL),
+                             RelationalMap (gde je koji tip, atribut i veza u tabelama)
+    Query/                   ErlqTranslator (ERLQ → T-SQL), ErlqExamples (primeri upita iz modela)
   Texter.Api/                POST /api/conceptualmodel/extract → { model, diagram, sentences, notes }
                              POST /api/erld/generate, /api/erld/validate → { code, errors }
                              POST /api/ddl/sqlserver { code } → { sql, errors, warnings }
+                             POST /api/erlq/database | sample-data | run | table (korak 4)
   Texter.Tests/              xUnit
 frontend/                    Vue 3 + Vite + GoJS
 ```
@@ -97,11 +101,49 @@ navigacija i agregati, imenovana ograničenja, pravila `reject`) navedeno je na 
 Atribucija (`@source`, `@confidence`) prelazi u SQL komentare, pa prelaz preko tabele ili kolone u koraku 3 označava
 rečenice zahteva. Testovi izvršavaju generisani DDL na LocalDB-u (ako ga nema, samo ga generišu).
 
+Skript počinje `SET` opcijama (`QUOTED_IDENTIFIER` i ostale), pa radi i u `sqlcmd`-u i u SSMS-u sa drugačijim
+podešavanjima. Opcija **drop existing tables** dodaje na početak brisanje tabela iz skripta (i stranih ključeva ka
+njima), da se skript može ponovo izvršiti u istoj bazi. Dugme **Create database** pravi bazu sa upisanim nazivom
+(ako ne postoji) na serveru iz `appsettings.json` (sekcija `Deploy`, podrazumevano `(localdb)\MSSQLLocalDB`) i u
+njoj izvrši DDL, pa se baza odmah vidi u SSMS-u.
+
+## Korak 4: ERLQ upiti nad fizičkim skladištem
+
+ERLQ (`Texter.Erl/Grammar/ERLQ.g4`, deli izraze sa ERLD-om kroz `ERLCommon.g4`) piše upite nad entitetima,
+atributima i ulogama, ne nad tabelama:
+
+```
+from r in Radnik, i in r.isplate              -- dugi zapis
+where r.sluzba.naziv = 'IT' and i.iznos > 100
+select r.ime, i.iznos, card(r.ucestvuje) as projekata
+order by i.iznos desc
+limit 10
+
+Radnik[sluzba.naziv = 'IT'].ime               -- kratki zapis (putanja), razvija se u dugi
+```
+
+`ErlqTranslator` ga prevodi u T-SQL nad šemom iz koraka 3 (preko `RelationalMap`):
+
+- opseg `r in Radnik` je tabela u FROM, `i in r.isplate` JOIN vezan za `r`;
+- navigacija sa gornjom granicom 1 (`r.sluzba.naziv`) je LEFT JOIN, prema tome kako je veza smeštena: FK na jednoj
+  ili drugoj strani, spojna tabela ili tabela agregacije; iz agregacije do učesnika se ide imenom učesnika
+  (`u.radnik`), iz učesnika do agregacije imenom agregacije (`r.ucestvuje`);
+- kolekcija (`r.isplate`, filter `[...]`, `r.isplate.iznos`) se troši u `card`, `count`, `sum`, `avg`, `min`, `max`,
+  `exists`, `forall`, `x in c` – svaka je korelisani podupit;
+- agregat nad promenljivom ili vrednošću (ne nad kolekcijom) agregira redove upita (`group by`);
+- podtip bira svoje redove diskriminatorom tabele hijerarhije; entitet u `select` daje sve svoje atribute.
+
+Upit se izvršava na LocalDB bazi napravljenoj iz DDL-a (`SandboxDatabase`: ime baze je izvedeno iz DDL-a, upit
+radi u transakciji koja se uvek poništava). Probne podatke piše LLM (`SampleDataGenerator`), uz JSON šemu
+napravljenu od stvarnih tabela i kolona; red koji prekrši ograničenje baza odbije i on se prijavi. Bez ključa
+(`fake-llm`) koriste se snimljeni podaci za biblioteku (`Samples/fake/sample_data.json`). Server baze se menja u
+`appsettings.json` (sekcija `Sandbox`). ERLQ v0.1 ima samo upite; naredbe za izmenu podataka dolaze kasnije.
+
 ## Pokretanje
 
 Za build i pokretanje dovoljan je .NET 10 SDK i Node.js.
 
-Posle izmene gramatike (`Texter.Erl/Grammar/*.g4`) parser se ponovo generiše skriptom
+Posle izmene gramatike (`Texter.Erl/Grammar/*.g4`) parseri (ERLD i ERLQ) se ponovo generišu skriptom
 `Texter.Erl/generate-parser.ps1` (ili `.sh`). Samo za to treba Java 11+, jer je ANTLR alat napisan u Javi;
 generisani C# kod (`Texter.Erl/Generated/`) je u repozitorijumu.
 

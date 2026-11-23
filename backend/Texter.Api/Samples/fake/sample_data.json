@@ -1,0 +1,53 @@
+{
+  "Member": [
+    { "membershipNumber": "M001", "name": "Ana Petrović" },
+    { "membershipNumber": "M002", "name": "Marko Jovanović" },
+    { "membershipNumber": "M003", "name": "Jelena Nikolić" },
+    { "membershipNumber": "M004", "name": "Stefan Ilić" }
+  ],
+  "MemberPhoneNumber": [
+    { "membershipNumber": "M001", "phoneNumber": "+381 64 111 2233" },
+    { "membershipNumber": "M001", "phoneNumber": "+381 11 222 3344" },
+    { "membershipNumber": "M002", "phoneNumber": "+381 63 555 6677" },
+    { "membershipNumber": "M003", "phoneNumber": "+381 65 888 9900" },
+    { "membershipNumber": "M004", "phoneNumber": "+381 60 123 4567" }
+  ],
+  "Book": [
+    { "isbn": "9788652103171", "title": "Na Drini ćuprija", "publicationYear": 1945 },
+    { "isbn": "9788610020212", "title": "Prokleta avlija", "publicationYear": 1954 },
+    { "isbn": "9780132350884", "title": "Clean Code", "publicationYear": 2008 }
+  ],
+  "BookAuthor": [
+    { "isbn": "9788652103171", "author": "Ivo Andrić" },
+    { "isbn": "9788610020212", "author": "Ivo Andrić" },
+    { "isbn": "9780132350884", "author": "Robert C. Martin" }
+  ],
+  "Copy": [
+    { "isbn": "9788652103171", "copyNumber": 1 },
+    { "isbn": "9788652103171", "copyNumber": 2 },
+    { "isbn": "9788652103171", "copyNumber": 3 },
+    { "isbn": "9788610020212", "copyNumber": 1 },
+    { "isbn": "9780132350884", "copyNumber": 1 },
+    { "isbn": "9780132350884", "copyNumber": 2 }
+  ],
+  "Loan": [
+    { "membershipNumber": "M001", "isbn": "9788652103171", "copyNumber": 1, "loanDate": "2026-09-01", "returnDate": "2026-09-15" },
+    { "membershipNumber": "M001", "isbn": "9780132350884", "copyNumber": 1, "loanDate": "2026-10-03", "returnDate": "2026-10-20" },
+    { "membershipNumber": "M002", "isbn": "9788652103171", "copyNumber": 1, "loanDate": "2026-09-20", "returnDate": "2026-10-01" },
+    { "membershipNumber": "M002", "isbn": "9788610020212", "copyNumber": 1, "loanDate": "2026-11-02", "returnDate": "2026-11-16" },
+    { "membershipNumber": "M003", "isbn": "9780132350884", "copyNumber": 2, "loanDate": "2025-12-10", "returnDate": "2026-01-05" },
+    { "membershipNumber": "M001", "isbn": "9788652103171", "copyNumber": 2, "loanDate": "2026-11-10", "returnDate": "2026-11-24" }
+  ],
+  "Section": [
+    { "sectionId": 1, "floor": 0 },
+    { "sectionId": 2, "floor": 1 },
+    { "sectionId": 3, "floor": 2 }
+  ],
+  "Employee": [
+    { "employeeId": 1, "tip": "Librarian", "sectionId": 1 },
+    { "employeeId": 2, "tip": "Librarian", "sectionId": 2 },
+    { "employeeId": 3, "tip": "Technician", "sectionId": null },
+    { "employeeId": 4, "tip": "Librarian", "sectionId": 3 },
+    { "employeeId": 5, "tip": "Technician", "sectionId": null }
+  ]
+}
