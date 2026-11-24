@@ -47,7 +47,13 @@ const steps = computed(() => [
     <ConceptualModelStep v-show="step === 'conceptual'" v-model:text="text" v-model:result="conceptual" />
     <ErldStep v-if="step === 'erld' && conceptual" v-model:erld="erld" :text="text" :conceptual="conceptual" />
     <DdlStep v-if="step === 'ddl' && erld?.code" v-model:ddl="ddl" :text="text" :conceptual="conceptual" :erld-code="erld.code" />
-    <ErlqStep v-if="step === 'erlq' && ddl?.sql" v-model:query="query" :text="text" :erld-code="ddl.erldCode" />
+    <ErlqStep
+      v-if="step === 'erlq' && ddl?.sql"
+      v-model:query="query"
+      :text="text"
+      :erld-code="ddl.erldCode"
+      :created-database="ddl.deployed?.database ?? null"
+    />
   </div>
 </template>
 

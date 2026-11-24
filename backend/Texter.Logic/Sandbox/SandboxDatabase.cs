@@ -31,25 +31,34 @@ namespace Texter.Logic.Sandbox
     public record QueryResult(List<string> Columns, List<List<string?>> Rows, bool Truncated);
 
     /// <summary>
-    /// Step 4's physical store: a SQL Server database built from the DDL of step 3, holding sample data.
-    /// The database name is derived from the DDL, so the same DDL reuses the same database.
+    /// Step 4's physical store. Either the database the user created in step 3 (by name, on the Deploy server),
+    /// or a temporary one built from the DDL (its name derived from the DDL, so the same DDL reuses it).
     /// Queries run in a transaction that is always rolled back.
     /// </summary>
-    public class SandboxDatabase(IOptions<SandboxOptions> options)
+    public class SandboxDatabase(IOptions<SandboxOptions> options, IOptions<DeployOptions>? deploy = null)
     {
         private readonly SandboxOptions _options = options.Value;
+        private readonly DeployOptions _deploy = deploy?.Value ?? new DeployOptions();
 
-        /// <summary>The instance the sandbox databases live on, as SSMS would show it.</summary>
+        /// <summary>The instance the temporary databases live on, as SSMS would show it.</summary>
         public string Server => new SqlConnectionStringBuilder(_options.ConnectionString).DataSource;
+
+        /// <summary>Named database (step 3): the Deploy server; none: the temporary database's server.</summary>
+        private string Connection(string? database) => database is null ? _options.ConnectionString : _deploy.ConnectionString;
 
         public static string DatabaseName(string ddl) =>
             "texter_" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(ddl)))[..16].ToLowerInvariant();
 
-        /// <summary>Creates the database from the DDL unless it already exists.</summary>
-        public async Task<SandboxInfo> EnsureAsync(string ddl, RelationalMap map, CancellationToken ct = default)
+        /// <summary>
+        /// The database to work in. Named: the database created in step 3, which must exist and have the tables of
+        /// the current DDL. Not named: the temporary database, created from the DDL unless it already exists.
+        /// </summary>
+        public async Task<SandboxInfo> EnsureAsync(string ddl, RelationalMap map, string? database = null, CancellationToken ct = default)
         {
+            if (database is not null) return await CheckNamedAsync(database.Trim(), map, ct);
+
             var name = DatabaseName(ddl);
-            await using (var master = await OpenAsync(null, ct))
+            await using (var master = await OpenAsync(_options.ConnectionString, null, ct))
             {
                 var exists = await ScalarAsync(master, "SELECT COUNT(*) FROM sys.databases WHERE name = @n", ct, ("@n", name)) is int n && n > 0;
                 if (!exists)
@@ -57,7 +66,7 @@ namespace Texter.Logic.Sandbox
                     await ExecAsync(master, $"CREATE DATABASE [{name}]", ct);
                     try
                     {
-                        await using var db = await OpenAsync(name, ct);
+                        await using var db = await OpenAsync(_options.ConnectionString, name, ct);
                         await ExecAsync(db, ddl, ct);
                     }
                     catch (SqlException e)
@@ -67,17 +76,41 @@ namespace Texter.Logic.Sandbox
                     }
                 }
             }
-            return new SandboxInfo(Server, name, await CountsAsync(name, map, ct));
+            return new SandboxInfo(Server, name, await CountsAsync(_options.ConnectionString, name, map, ct));
+        }
+
+        private async Task<SandboxInfo> CheckNamedAsync(string database, RelationalMap map, CancellationToken ct)
+        {
+            var server = new SqlConnectionStringBuilder(_deploy.ConnectionString).DataSource;
+            if (!DatabaseDeployer.IsValidName(database)) throw new SandboxException($"'{database}' is not a valid database name.");
+
+            await using (var master = await OpenAsync(_deploy.ConnectionString, null, ct))
+                if (await ScalarAsync(master, "SELECT DB_ID(@n)", ct, ("@n", database)) is DBNull or null)
+                    throw new SandboxException($"Database '{database}' does not exist on {server}. Create it in step 3 (Create database).");
+
+            var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            await using (var db = await OpenAsync(_deploy.ConnectionString, database, ct))
+            {
+                await using var list = new SqlCommand("SELECT name FROM sys.tables", db);
+                await using var reader = await list.ExecuteReaderAsync(ct);
+                while (await reader.ReadAsync(ct)) existing.Add(reader.GetString(0));
+            }
+            var missing = map.Tables.Where(t => !existing.Contains(t.Name)).Select(t => t.Name).ToList();
+            if (missing.Count > 0)
+                throw new SandboxException($"Database '{database}' does not have the tables of the current model (missing: {string.Join(", ", missing)}). " +
+                    "Create it again in step 3, with \"drop existing tables\" if it already has older ones.");
+
+            return new SandboxInfo(server, database, await CountsAsync(_deploy.ConnectionString, database, map, ct));
         }
 
         /// <summary>
         /// Replaces all rows with the given data. Rows are inserted parents first; a row that violates a constraint
         /// is retried after the others and finally reported, not silently dropped.
         /// </summary>
-        public async Task<LoadResult> LoadAsync(string ddl, RelationalMap map, Dictionary<string, List<Dictionary<string, JsonElement>>> data, CancellationToken ct = default)
+        public async Task<LoadResult> LoadAsync(string ddl, RelationalMap map, Dictionary<string, List<Dictionary<string, JsonElement>>> data, string? database = null, CancellationToken ct = default)
         {
-            var info = await EnsureAsync(ddl, map, ct);
-            await using var db = await OpenAsync(info.Database, ct);
+            var info = await EnsureAsync(ddl, map, database, ct);
+            await using var db = await OpenAsync(Connection(database), info.Database, ct);
             var order = ParentsFirst(map.Tables);
 
             // Empty the tables, children first; foreign keys without cascade may need a few rounds.
@@ -113,13 +146,13 @@ namespace Texter.Logic.Sandbox
                 rows = failed;
             }
             var rejected = rows.Select(x => $"{x.Table.Name} {Describe(x.Row)}: {errors[(x.Table.Name, x.Row.GetHashCode())]}").ToList();
-            return new LoadResult(await CountsAsync(info.Database, map, ct), rejected);
+            return new LoadResult(await CountsAsync(Connection(database), info.Database, map, ct), rejected);
         }
 
-        public async Task<QueryResult> QueryAsync(string ddl, RelationalMap map, string sql, CancellationToken ct = default)
+        public async Task<QueryResult> QueryAsync(string ddl, RelationalMap map, string sql, string? database = null, CancellationToken ct = default)
         {
-            var info = await EnsureAsync(ddl, map, ct);
-            await using var db = await OpenAsync(info.Database, ct);
+            var info = await EnsureAsync(ddl, map, database, ct);
+            await using var db = await OpenAsync(Connection(database), info.Database, ct);
             await using var transaction = (SqlTransaction)await db.BeginTransactionAsync(ct);
             try
             {
@@ -145,25 +178,25 @@ namespace Texter.Logic.Sandbox
             }
         }
 
-        public Task<QueryResult> TableAsync(string ddl, RelationalMap map, string table, CancellationToken ct = default)
+        public Task<QueryResult> TableAsync(string ddl, RelationalMap map, string table, string? database = null, CancellationToken ct = default)
         {
             var known = map.Tables.FirstOrDefault(t => string.Equals(t.Name, table, StringComparison.OrdinalIgnoreCase))
                 ?? throw new SandboxException($"Unknown table '{table}'.");
-            return QueryAsync(ddl, map, $"SELECT TOP ({_options.MaxRows}) * FROM {Q(known.Name)}", ct);
+            return QueryAsync(ddl, map, $"SELECT TOP ({_options.MaxRows}) * FROM {Q(known.Name)}", database, ct);
         }
 
-        /// <summary>Drops the database of this DDL, if it exists.</summary>
+        /// <summary>Drops the temporary database of this DDL, if it exists.</summary>
         public async Task DropAsync(string ddl, CancellationToken ct = default)
         {
-            await using var master = await OpenAsync(null, ct);
+            await using var master = await OpenAsync(_options.ConnectionString, null, ct);
             await DropAsync(master, DatabaseName(ddl), ct);
         }
 
         // ------------------------------------------------------------------ helpers
 
-        private async Task<List<TableCount>> CountsAsync(string database, RelationalMap map, CancellationToken ct)
+        private async Task<List<TableCount>> CountsAsync(string connection, string database, RelationalMap map, CancellationToken ct)
         {
-            await using var db = await OpenAsync(database, ct);
+            await using var db = await OpenAsync(connection, database, ct);
             var counts = new List<TableCount>();
             foreach (var t in map.Tables)
                 counts.Add(new TableCount(t.Name, (int)(await ScalarAsync(db, $"SELECT COUNT(*) FROM {Q(t.Name)}", ct))!));
@@ -242,9 +275,9 @@ namespace Texter.Logic.Sandbox
             return result;
         }
 
-        private async Task<SqlConnection> OpenAsync(string? database, CancellationToken ct)
+        private static async Task<SqlConnection> OpenAsync(string connectionString, string? database, CancellationToken ct)
         {
-            var builder = new SqlConnectionStringBuilder(_options.ConnectionString);
+            var builder = new SqlConnectionStringBuilder(connectionString);
             if (database is not null) builder.InitialCatalog = database;
             var connection = new SqlConnection(builder.ConnectionString);
             try

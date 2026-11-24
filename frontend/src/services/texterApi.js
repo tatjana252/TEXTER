@@ -30,15 +30,17 @@ export const texterApi = {
   deploySqlServerDdl: (code, database, includeAttribution, dropExisting) =>
     post('/api/ddl/deploy', { code, database, includeAttribution, dropExisting }),
 
-  /** ERLD source -> sandbox database from its DDL: { database, tables: [{ name, rows }], examples } */
-  erlqDatabase: (code) => post('/api/erlq/database', { code }),
+  // Step 4. database: the one created in step 3, or null for a temporary database built from the DDL.
 
-  /** LLM sample data loaded into the sandbox: { tables, rejected } */
-  erlqSampleData: (code, requirements) => post('/api/erlq/sample-data', { code, requirements }),
+  /** The database to query: { server, database, tables: [{ name, rows }], examples } */
+  erlqDatabase: (code, database) => post('/api/erlq/database', { code, database }),
+
+  /** LLM sample data loaded into the database (replacing its rows): { tables, rejected } */
+  erlqSampleData: (code, requirements, database) => post('/api/erlq/sample-data', { code, requirements, database }),
 
   /** ERLQ query -> { sql, columns, rows, truncated, errors, executionError } */
-  erlqRun: (code, query) => post('/api/erlq/run', { code, query }),
+  erlqRun: (code, query, database) => post('/api/erlq/run', { code, query, database }),
 
   /** Rows of one table: { columns, rows, truncated } */
-  erlqTable: (code, table) => post('/api/erlq/table', { code, table })
+  erlqTable: (code, table, database) => post('/api/erlq/table', { code, table, database })
 }

@@ -6,8 +6,21 @@ import { texterApi } from '../services/texterApi'
 const props = defineProps({
   text: { type: String, required: true },
   /** ERLD source the DDL of step 3 was generated from */
-  erldCode: { type: String, required: true }
+  erldCode: { type: String, required: true },
+  /** Database created in step 3 (Create database); null: none, a temporary database is used */
+  createdDatabase: { type: String, default: null }
 })
+
+/** Database the queries run in: the one from step 3, or '' for the temporary one. */
+const target = ref(props.createdDatabase ?? '')
+const targetOrNull = () => target.value || null
+
+function switchTarget() {
+  result.value = null
+  tableRows.value = null
+  rejected.value = []
+  loadDatabase()
+}
 /** ERLQ query text (kept when switching steps) */
 const query = defineModel('query', { type: String, default: '' })
 
@@ -33,7 +46,7 @@ onMounted(loadDatabase)
 
 async function loadDatabase() {
   await call('database', async () => {
-    database.value = await texterApi.erlqDatabase(props.erldCode)
+    database.value = await texterApi.erlqDatabase(props.erldCode, targetOrNull())
     if (!query.value && database.value.examples.length) query.value = database.value.examples[0]
     table.value ||= database.value.tables[0]?.name ?? ''
   })
@@ -41,7 +54,7 @@ async function loadDatabase() {
 
 async function generateData() {
   await call('data', async () => {
-    const loaded = await texterApi.erlqSampleData(props.erldCode, props.text)
+    const loaded = await texterApi.erlqSampleData(props.erldCode, props.text, targetOrNull())
     database.value = { ...database.value, tables: loaded.tables }
     rejected.value = loaded.rejected
     if (tab.value === 'data') await showTable()
@@ -52,7 +65,7 @@ async function generateData() {
 async function run() {
   if (!query.value.trim()) return
   await call('run', async () => {
-    result.value = await texterApi.erlqRun(props.erldCode, query.value)
+    result.value = await texterApi.erlqRun(props.erldCode, query.value, targetOrNull())
     tab.value = 'result'
   })
 }
@@ -60,7 +73,7 @@ async function run() {
 async function showTable() {
   if (!table.value) return
   await call('table', async () => {
-    tableRows.value = await texterApi.erlqTable(props.erldCode, table.value)
+    tableRows.value = await texterApi.erlqTable(props.erldCode, table.value, targetOrNull())
   })
 }
 
@@ -124,11 +137,24 @@ function openData() {
         <h2>Database</h2>
         <span v-if="database" class="muted">{{ database.tables.length }} tables, {{ totalRows }} rows</span>
         <span class="spacer" />
-        <button :disabled="!!busy" @click="generateData">
+        <button
+          :disabled="!!busy"
+          :title="`The LLM writes sample rows; they replace the rows in the model's tables of ${database?.database ?? 'the database'}`"
+          @click="generateData"
+        >
           {{ busy === 'data' ? 'The LLM is writing data…' : totalRows ? 'Regenerate sample data' : 'Generate sample data' }}
         </button>
       </div>
 
+      <div v-if="createdDatabase" class="connection">
+        <label>
+          <span class="muted">Run in</span>
+          <select v-model="target" @change="switchTarget">
+            <option :value="createdDatabase">{{ createdDatabase }} (created in step 3)</option>
+            <option value="">a temporary database built from the DDL</option>
+          </select>
+        </label>
+      </div>
       <div v-if="database" class="connection">
         <span><span class="muted">Instance</span> <code>{{ database.server }}</code></span>
         <span>
@@ -252,6 +278,13 @@ pre {
   flex-wrap: wrap;
   gap: 4px 16px;
   font-size: 13px;
+}
+.connection select {
+  margin-left: 6px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
 }
 .connection code {
   font-size: 12.5px;

@@ -219,6 +219,57 @@ namespace Texter.Tests
             }
         }
 
+        [Fact]
+        public async Task Erlq_runs_in_the_database_created_in_step_3()
+        {
+            var model = ErldModelBuilder.Analyze(File.ReadAllText(Path.Combine(SamplesDir, "preduzece.erld"))).Model!;
+            var ddl = SqlServerDdlGenerator.Generate(model);
+            var deployer = new DatabaseDeployer(Options.Create(new DeployOptions()));
+            var sandbox = new SandboxDatabase(Options.Create(new SandboxOptions()), Options.Create(new DeployOptions()));
+            var name = "Texter Erlq " + Guid.NewGuid().ToString("N")[..8];
+            try
+            {
+                // Not created yet: a clear message.
+                var missing = await Assert.ThrowsAsync<SandboxException>(() => sandbox.EnsureAsync(ddl.Sql, ddl.Map, name));
+                Assert.Contains("does not exist", missing.Message);
+
+                await deployer.DeployAsync(name, ddl.Sql);
+                var info = await sandbox.EnsureAsync(ddl.Sql, ddl.Map, name);
+                Assert.Equal(name, info.Database);
+
+                var data = new Dictionary<string, List<Dictionary<string, System.Text.Json.JsonElement>>>
+                {
+                    ["Sluzba"] = new() { Row("""{ "sId": 1, "naziv": "IT" }""") },
+                    ["RadnoMesto"] = new() { Row("""{ "rmId": 1, "naziv": "ŠEF" }""") },
+                    ["Radnik"] = new() { Row("""{ "rId": 100, "ime": "Ana", "rmId": 1, "sId": 1 }""") }
+                };
+                var load = await sandbox.LoadAsync(ddl.Sql, ddl.Map, data, name);
+                Assert.Empty(load.Rejected);
+
+                var translation = Texter.Erl.Query.ErlqTranslator.Translate("Radnik[sluzba.naziv = 'IT'].ime", model, ddl.Map);
+                var rows = await sandbox.QueryAsync(ddl.Sql, ddl.Map, translation.Sql!, name);
+                Assert.Equal("Ana", rows.Rows.Single()[0]);
+
+                // The database of another model: the tables of this one are missing.
+                var other = ErldModelBuilder.Analyze("model X; entity Drugo { key id : int; }").Model!;
+                var otherDdl = SqlServerDdlGenerator.Generate(other);
+                var wrong = await Assert.ThrowsAsync<SandboxException>(() => sandbox.EnsureAsync(otherDdl.Sql, otherDdl.Map, name));
+                Assert.Contains("missing: Drugo", wrong.Message);
+            }
+            catch (SandboxException e) when (e.Message.Contains("not available") || e.Message.Contains("network-related"))
+            {
+                output.WriteLine("LocalDB is not available: " + e.Message);
+            }
+            finally
+            {
+                LocalDb.Drop(name);
+            }
+
+            static System.Text.Json.JsonElement Parse(string json) => System.Text.Json.JsonDocument.Parse(json).RootElement.Clone();
+            static Dictionary<string, System.Text.Json.JsonElement> Row(string json) =>
+                Parse(json).EnumerateObject().ToDictionary(p => p.Name, p => p.Value.Clone());
+        }
+
         [Theory]
         [InlineData("Biblioteka", true)]
         [InlineData("Radna baza_2", true)]

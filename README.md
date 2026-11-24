@@ -133,8 +133,9 @@ Radnik[sluzba.naziv = 'IT'].ime               -- kratki zapis (putanja), razvija
 - agregat nad promenljivom ili vrednošću (ne nad kolekcijom) agregira redove upita (`group by`);
 - podtip bira svoje redove diskriminatorom tabele hijerarhije; entitet u `select` daje sve svoje atribute.
 
-Upit se izvršava na LocalDB bazi napravljenoj iz DDL-a (`SandboxDatabase`: ime baze je izvedeno iz DDL-a, upit
-radi u transakciji koja se uvek poništava). Probne podatke piše LLM (`SampleDataGenerator`), uz JSON šemu
+Upit se izvršava u bazi napravljenoj u koraku 3 (**Create database**), a ako je nema, u privremenoj LocalDB bazi
+napravljenoj iz DDL-a (`SandboxDatabase`: ime baze je izvedeno iz DDL-a). Za bazu iz koraka 3 proverava se da ima sve
+tabele trenutnog modela; upit radi u transakciji koja se uvek poništava. Probne podatke piše LLM (`SampleDataGenerator`), uz JSON šemu
 napravljenu od stvarnih tabela i kolona; red koji prekrši ograničenje baza odbije i on se prijavi. Bez ključa
 (`fake-llm`) koriste se snimljeni podaci za biblioteku (`Samples/fake/sample_data.json`). Server baze se menja u
 `appsettings.json` (sekcija `Sandbox`). ERLQ v0.1 ima samo upite; naredbe za izmenu podataka dolaze kasnije.

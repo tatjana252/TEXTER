@@ -24,7 +24,7 @@ namespace Texter.Api.Controllers
             if (Model(request.Code, out var model, out var ddl, out var errors) is { } invalid) return invalid;
             try
             {
-                var info = await sandbox.EnsureAsync(ddl.Sql, ddl.Map, ct);
+                var info = await sandbox.EnsureAsync(ddl.Sql, ddl.Map, request.Database, ct);
                 return new ErlqDatabaseResponse(info.Server, info.Database, info.Tables, ErlqExamples.For(model!, ddl.Map));
             }
             catch (SandboxException e)
@@ -41,7 +41,7 @@ namespace Texter.Api.Controllers
             try
             {
                 var data = await generator.GenerateAsync(request.Requirements, ddl.Sql, ddl.Map, ct);
-                var result = await sandbox.LoadAsync(ddl.Sql, ddl.Map, data, ct);
+                var result = await sandbox.LoadAsync(ddl.Sql, ddl.Map, data, request.Database, ct);
                 return new ErlqSampleDataResponse(result.Tables, result.Rejected);
             }
             catch (LlmException e)
@@ -63,7 +63,7 @@ namespace Texter.Api.Controllers
             if (translation.Sql is null) return new ErlqRunResponse(null, new(), new(), false, translation.Errors, null);
             try
             {
-                var result = await sandbox.QueryAsync(ddl.Sql, ddl.Map, translation.Sql, ct);
+                var result = await sandbox.QueryAsync(ddl.Sql, ddl.Map, translation.Sql, request.Database, ct);
                 return new ErlqRunResponse(translation.Sql, translation.Columns, result.Rows, result.Truncated, new(), null);
             }
             catch (SandboxException e)
@@ -79,7 +79,7 @@ namespace Texter.Api.Controllers
             if (Model(request.Code, out _, out var ddl, out _) is { } invalid) return invalid;
             try
             {
-                var result = await sandbox.TableAsync(ddl.Sql, ddl.Map, request.Table, ct);
+                var result = await sandbox.TableAsync(ddl.Sql, ddl.Map, request.Table, request.Database, ct);
                 return new ErlqTableResponse(result.Columns, result.Rows, result.Truncated);
             }
             catch (SandboxException e)

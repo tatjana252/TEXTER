@@ -12,7 +12,7 @@ const props = defineProps({
   /** ERLD source from step 2 (generated or edited) */
   erldCode: { type: String, required: true }
 })
-/** { sql, errors, warnings, erldCode, includeAttribution, dropExisting } */
+/** { sql, errors, warnings, erldCode, includeAttribution, dropExisting, deployed: { database, server } } */
 const ddl = defineModel('ddl', { type: Object, default: null })
 
 const includeAttribution = ref(ddl.value?.includeAttribution ?? true)
@@ -45,6 +45,8 @@ async function deploy() {
   }
   try {
     deployed.value = await texterApi.deploySqlServerDdl(props.erldCode, databaseName.value.trim(), includeAttribution.value, dropExisting.value)
+    // Step 4 runs its queries in this database.
+    if (!deployed.value.error) ddl.value = { ...ddl.value, deployed: { database: deployed.value.database, server: deployed.value.server } }
   } catch (e) {
     deployed.value = { error: e.message }
   } finally {
@@ -62,7 +64,9 @@ async function generate() {
   error.value = ''
   try {
     const result = await texterApi.generateSqlServerDdl(props.erldCode, includeAttribution.value, dropExisting.value)
-    ddl.value = { ...result, erldCode: props.erldCode, includeAttribution: includeAttribution.value, dropExisting: dropExisting.value }
+    // A regenerated DDL for the same ERLD keeps the database it was created in.
+    const deployedDb = ddl.value?.erldCode === props.erldCode ? ddl.value?.deployed : null
+    ddl.value = { ...result, erldCode: props.erldCode, includeAttribution: includeAttribution.value, dropExisting: dropExisting.value, deployed: deployedDb }
   } catch (e) {
     error.value = e.message
   } finally {

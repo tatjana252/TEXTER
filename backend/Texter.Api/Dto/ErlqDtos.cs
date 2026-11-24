@@ -9,6 +9,15 @@ namespace Texter.Api.Dto
         /// <summary>ERLD source of the model (step 2).</summary>
         [Required]
         public string Code { get; set; } = default!;
+
+        /// <summary>Database created in step 3 to work in; empty: a temporary database built from the DDL.</summary>
+        public string? Database
+        {
+            get => _database;
+            set => _database = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }
+
+        private string? _database;
     }
 
     public class ErlqSampleDataRequest : ErlqModelRequest
