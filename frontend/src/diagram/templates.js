@@ -23,25 +23,32 @@ const confidenceFill = (shape) =>
  * Shape with an optional inner (double) border, colored by confidence.
  * @param isDouble draws the inner border (weak entity, weak relationship)
  */
-function shapeNode(figure, isDouble, { minSize, margin = 4, events }) {
+function shapeNode(figure, isDouble, { minSize, margin = 4, font = FONT, textMargin = new go.Margin(6, 10), events }) {
+  const text = new go.TextBlock({ margin: textMargin, font, textAlign: 'center', stroke: '#222' }).bind('text')
+  const outer = confidenceFill(new go.Shape(figure, { strokeWidth: 2, minSize }))
+  // Only a double border nests a second shape: a diamond around a diamond would double its size.
+  if (!isDouble) return new go.Node('Auto', hoverEvents(events)).add(outer, text)
   return new go.Node('Auto', hoverEvents(events)).add(
-    confidenceFill(new go.Shape(figure, { strokeWidth: 2, minSize })),
+    outer,
     new go.Panel('Auto', { margin }).add(
-      new go.Shape(figure, { fill: null, strokeWidth: 1.5 })
-        .bind('stroke', '', (d) => (isDouble ? colorsFor(d.confidenceLevel).stroke : null)),
-      new go.TextBlock({ margin: new go.Margin(6, 10), font: FONT, textAlign: 'center', stroke: '#222' }).bind('text')
+      new go.Shape(figure, { fill: null, strokeWidth: 1.5 }).bind('stroke', 'confidenceLevel', (l) => colorsFor(l).stroke),
+      text
     )
   )
 }
+
+/** Relationship diamonds: small, so that the entities stay the main shapes of the diagram. */
+const DIAMOND_FONT = '600 11px "Segoe UI", system-ui, sans-serif'
+const DIAMOND_TEXT_MARGIN = new go.Margin(1, 2)
 
 /** Aggregation: relationship (diamond) inside an entity rectangle - mixed entity-relationship type. */
 function aggregationNode(events) {
   return new go.Node('Auto', hoverEvents(events)).add(
     confidenceFill(new go.Shape('Rectangle', { strokeWidth: 2 })),
-    new go.Panel('Auto', { margin: 4 }).add(
-      new go.Shape('Diamond', { fill: 'white', strokeWidth: 1.5, minSize: new go.Size(110, 56) })
+    new go.Panel('Auto', { margin: 3 }).add(
+      new go.Shape('Diamond', { fill: 'white', strokeWidth: 1.5, minSize: new go.Size(70, 36) })
         .bind('stroke', 'confidenceLevel', (l) => colorsFor(l).stroke),
-      new go.TextBlock({ margin: new go.Margin(6, 10), font: FONT, stroke: '#222' }).bind('text')
+      new go.TextBlock({ margin: DIAMOND_TEXT_MARGIN, font: DIAMOND_FONT, stroke: '#222' }).bind('text')
     )
   )
 }
@@ -66,7 +73,8 @@ function generalizationNode(events) {
 
 export function nodeTemplates(events) {
   const entity = (weak) => shapeNode('Rectangle', weak, { minSize: new go.Size(110, 44), events })
-  const relationship = (weak) => shapeNode('Diamond', weak, { minSize: new go.Size(120, 64), margin: 7, events })
+  const relationship = (weak) =>
+    shapeNode('Diamond', weak, { minSize: new go.Size(70, 36), margin: 4, font: DIAMOND_FONT, textMargin: DIAMOND_TEXT_MARGIN, events })
 
   return new go.Map([
     ['entity', entity(false)],
@@ -104,6 +112,25 @@ function mappingDetails(link) {
   }
 }
 
+/** Identifying arrow owner -> weak entity: the relationship's attribution, plus the owner's mapping. */
+function identifyingDetails(link) {
+  const model = link.diagram.model
+  const element = link.data.element
+  const owner = model.findNodeDataForKey(link.data.from)?.text
+  const weak = model.findNodeDataForKey(link.data.to)?.text
+  return {
+    ...element,
+    key: `${element.key}:arrow`,
+    category: 'identifying',
+    relationshipName: element.text,
+    text: `${owner} ⇒ ${weak}`,
+    bounds: link.data.text,
+    role: link.data.role,
+    isAssumed: link.data.isAssumed,
+    confidenceLevel: link.data.isAssumed ? 'Low' : element.confidenceLevel
+  }
+}
+
 export function linkTemplates(events) {
   // Relationship -> entity; the label is the mapping entity => other entity, written next to the diamond.
   const mapping = new go.Link({
@@ -127,11 +154,33 @@ export function linkTemplates(events) {
     )
   )
 
+  // Identifying relationship (PMER): an arrow from the owner to the weak entity, the owner's bounds at its start.
+  const identifying = new go.Link({
+    selectable: false,
+    layerName: 'Background',
+    cursor: 'pointer',
+    mouseEnter: (e, link) => events.onHover(identifyingDetails(link)),
+    mouseLeave: () => events.onHover(null)
+  }).add(
+    new go.Shape({ isPanelMain: true, stroke: LINE, strokeWidth: 1.5 }),
+    new go.Shape({ isPanelMain: true, stroke: 'transparent', strokeWidth: 10 }),
+    new go.Shape({ toArrow: 'Triangle', scale: 1.1, stroke: LINE, fill: LINE }),
+    new go.Panel('Vertical', { segmentIndex: 0, segmentFraction: 0.3, segmentOffset: new go.Point(0, -14), background: 'transparent' }).add(
+      new go.TextBlock({ font: 'bold 13px "Segoe UI", system-ui, sans-serif' })
+        .bind('text', '', (d) => (d.isAssumed ? `${d.text}?` : d.text))
+        .bind('stroke', 'isAssumed', (a) => (a ? ASSUMED : '#333')),
+      new go.TextBlock({ font: 'italic 11px "Segoe UI", system-ui, sans-serif', stroke: '#6a737d' })
+        .bind('text', 'role')
+        .bind('visible', 'role', (n) => !!n)
+    )
+  )
+
   const plain = (width) =>
     new go.Link({ selectable: false, layerName: 'Background' }).add(new go.Shape({ stroke: LINE, strokeWidth: width }))
 
   return new go.Map([
     ['mapping', mapping],
+    ['identifying', identifying],
     ['attribute', plain(1.2)],
     ['generalization', plain(1.5)]
   ])

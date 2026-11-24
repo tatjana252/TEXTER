@@ -6,5 +6,8 @@ namespace Texter.Model.GoJs
         public const string Attribute = "attribute";
         public const string Mapping = "mapping";
         public const string Generalization = "generalization";
+
+        /// <summary>Identifying relationship: an arrow from the owner to its weak entity (PMER notation, no diamond).</summary>
+        public const string Identifying = "identifying";
     }
 }

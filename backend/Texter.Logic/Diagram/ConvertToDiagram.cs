@@ -17,8 +17,27 @@ namespace Texter.Logic.Diagram
                 AddAttributes(result, entity.Id, entity.Attributes);
             }
 
+            var weakIds = model.Entities.Where(e => e.Kind == EntityKind.Weak).Select(e => e.Id).ToHashSet();
             foreach (var relationship in model.Relationships)
             {
+                // Identifying relationship: an arrow owner -> weak entity, labelled with the owner's mapping.
+                var ownerMapping = new[] { relationship.Mapping1, relationship.Mapping2 }
+                    .SingleOrDefault(m => weakIds.Contains(m.CoDomainEntityId) && !weakIds.Contains(m.DomainEntityId));
+                if (relationship.IsWeak && !relationship.IsAggregation && ownerMapping is not null)
+                {
+                    result.Links.Add(new Link
+                    {
+                        From = ownerMapping.DomainEntityId,
+                        To = ownerMapping.CoDomainEntityId,
+                        Category = LinkCategory.Identifying,
+                        Text = ownerMapping.ToString(),
+                        Role = ownerMapping.Role,
+                        IsAssumed = ownerMapping.IsAssumed,
+                        Element = NodeFor(relationship, NodeCategory.WeakRelationship)
+                    });
+                    continue;
+                }
+
                 var category = relationship.IsAggregation ? NodeCategory.Aggregation
                     : relationship.IsWeak ? NodeCategory.WeakRelationship
                     : NodeCategory.Relationship;

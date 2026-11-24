@@ -24,5 +24,9 @@ namespace Texter.Model.GoJs
         /// <summary>Bounds were assumed (no cue in the text).</summary>
         [JsonPropertyName("isAssumed")]
         public bool IsAssumed { get; set; }
+
+        /// <summary>Identifying link: the relationship it draws, with its attribution (shown on hover).</summary>
+        [JsonPropertyName("element")]
+        public Node? Element { get; set; }
     }
 }

@@ -22,6 +22,7 @@ const kind = computed(() => {
   const e = props.element
   if (!e) return ''
   if (e.category === 'mapping') return `Mapping ${e.bounds}${e.role ? ` · ${e.role}` : ''} · of ${e.relationshipName}`
+  if (e.category === 'identifying') return `Identifying relationship ${e.relationshipName} · ${e.bounds}${e.role ? ` · ${e.role}` : ''}`
   if (e.category !== 'attribute') return KIND[e.category]
   return `${e.isIdentifier ? 'Identifier' : 'Attribute'} · ${e.type}`
 })
@@ -59,7 +60,7 @@ const decisionWithoutFacts = computed(() => {
         </span>
         <span v-for="id in element.sentenceIds" :key="id" class="sentence">{{ id }}</span>
       </div>
-      <p v-if="element.category === 'mapping'" :class="element.isAssumed ? 'warning' : 'rationale'">
+      <p v-if="element.category === 'mapping' || element.category === 'identifying'" :class="element.isAssumed ? 'warning' : 'rationale'">
         {{ element.isAssumed
           ? 'The bounds of this mapping are not stated in the text; they were assumed (shown with ?).'
           : 'The bounds of this mapping are stated in the text. The facts below are those of the relationship.' }}

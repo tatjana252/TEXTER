@@ -192,7 +192,11 @@ namespace Texter.Tests
 
             Assert.All(diagram.Links, l => Assert.True(keys.Contains(l.From) && keys.Contains(l.To)));
             Assert.Contains(diagram.Nodes, n => n.Category == NodeCategory.Aggregation);
-            Assert.Contains(diagram.Nodes, n => n.Category == NodeCategory.WeakRelationship);
+            // The identifying relationship Book -> Copy is an arrow, not a diamond.
+            Assert.DoesNotContain(diagram.Nodes, n => n.Category == NodeCategory.WeakRelationship);
+            var identifying = diagram.Links.Single(l => l.Category == LinkCategory.Identifying);
+            Assert.Equal("(0,M)", identifying.Text);
+            Assert.Equal("Has", identifying.Element!.Text);
             Assert.Contains(diagram.Links, l => l.Category == LinkCategory.Mapping && l.IsAssumed);
             Assert.Equal(new[] { "F14", "F15" }, diagram.Nodes.Single(n => n.Text == "Loan").DecisionFactIds);
         }
