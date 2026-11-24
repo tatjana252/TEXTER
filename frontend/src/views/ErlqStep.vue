@@ -7,13 +7,30 @@ const props = defineProps({
   text: { type: String, required: true },
   /** ERLD source the DDL of step 3 was generated from */
   erldCode: { type: String, required: true },
-  /** Database created in step 3 (Create database); null: none, a temporary database is used */
-  createdDatabase: { type: String, default: null }
+  /** Database created in step 3 on SQL Server (Create database); null: none, a temporary database is used */
+  createdDatabase: { type: String, default: null },
+  /** Database created in step 3 on MongoDB; null: none */
+  createdMongoDatabase: { type: String, default: null },
+  /** Store shown in step 3 when leaving it */
+  initialStore: { type: String, default: 'sqlserver' }
 })
 
+/** Where the queries run: SQL Server or MongoDB. */
+const store = ref(props.initialStore)
+const isMongo = computed(() => store.value === 'mongodb')
+const createdHere = computed(() => (isMongo.value ? props.createdMongoDatabase : props.createdDatabase))
+
 /** Database the queries run in: the one from step 3, or '' for the temporary one. */
-const target = ref(props.createdDatabase ?? '')
+const target = ref(createdHere.value ?? '')
 const targetOrNull = () => target.value || null
+
+function switchStore(which) {
+  if (store.value === which) return
+  store.value = which
+  target.value = createdHere.value ?? ''
+  database.value = null
+  switchTarget()
+}
 
 function switchTarget() {
   result.value = null
@@ -46,7 +63,7 @@ onMounted(loadDatabase)
 
 async function loadDatabase() {
   await call('database', async () => {
-    database.value = await texterApi.erlqDatabase(props.erldCode, targetOrNull())
+    database.value = await texterApi.erlqDatabase(props.erldCode, store.value, targetOrNull())
     if (!query.value && database.value.examples.length) query.value = database.value.examples[0]
     table.value ||= database.value.tables[0]?.name ?? ''
   })
@@ -54,7 +71,7 @@ async function loadDatabase() {
 
 async function generateData() {
   await call('data', async () => {
-    const loaded = await texterApi.erlqSampleData(props.erldCode, props.text, targetOrNull())
+    const loaded = await texterApi.erlqSampleData(props.erldCode, store.value, props.text, targetOrNull())
     database.value = { ...database.value, tables: loaded.tables }
     rejected.value = loaded.rejected
     if (tab.value === 'data') await showTable()
@@ -65,7 +82,7 @@ async function generateData() {
 async function run() {
   if (!query.value.trim()) return
   await call('run', async () => {
-    result.value = await texterApi.erlqRun(props.erldCode, query.value, targetOrNull())
+    result.value = await texterApi.erlqRun(props.erldCode, store.value, query.value, targetOrNull())
     tab.value = 'result'
   })
 }
@@ -73,7 +90,7 @@ async function run() {
 async function showTable() {
   if (!table.value) return
   await call('table', async () => {
-    tableRows.value = await texterApi.erlqTable(props.erldCode, table.value, targetOrNull())
+    tableRows.value = await texterApi.erlqTable(props.erldCode, store.value, table.value, targetOrNull())
   })
 }
 
@@ -127,7 +144,7 @@ function openData() {
         <code>Entity[attribute &gt; 0].role</code>.
       </p>
       <div v-if="result?.sql" class="sql">
-        <div class="label">Translated to SQL Server</div>
+        <div class="label">{{ isMongo ? 'Translated to a MongoDB aggregation pipeline' : 'Translated to SQL Server' }}</div>
         <pre>{{ result.sql }}</pre>
       </div>
     </section>
@@ -135,7 +152,9 @@ function openData() {
     <section class="panel">
       <div class="toolbar">
         <h2>Database</h2>
-        <span v-if="database" class="muted">{{ database.tables.length }} tables, {{ totalRows }} rows</span>
+        <span v-if="database" class="muted">
+          {{ database.tables.length }} {{ isMongo ? 'collections' : 'tables' }}, {{ totalRows }} {{ isMongo ? 'documents' : 'rows' }}
+        </span>
         <span class="spacer" />
         <button
           :disabled="!!busy"
@@ -146,11 +165,15 @@ function openData() {
         </button>
       </div>
 
-      <div v-if="createdDatabase" class="connection">
+      <div class="stores">
+        <button :class="{ current: !isMongo }" @click="switchStore('sqlserver')">SQL Server</button>
+        <button :class="{ current: isMongo }" @click="switchStore('mongodb')">MongoDB</button>
+      </div>
+      <div v-if="createdHere" class="connection">
         <label>
           <span class="muted">Run in</span>
           <select v-model="target" @change="switchTarget">
-            <option :value="createdDatabase">{{ createdDatabase }} (created in step 3)</option>
+            <option :value="createdHere">{{ createdHere }} (created in step 3)</option>
             <option value="">a temporary database built from the DDL</option>
           </select>
         </label>
@@ -278,6 +301,15 @@ pre {
   flex-wrap: wrap;
   gap: 4px 16px;
   font-size: 13px;
+}
+.stores {
+  display: flex;
+  gap: 2px;
+}
+.stores button.current {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
 }
 .connection select {
   margin-left: 6px;

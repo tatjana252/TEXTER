@@ -53,6 +53,8 @@ const steps = computed(() => [
       :text="text"
       :erld-code="ddl.erldCode"
       :created-database="ddl.deployed?.database ?? null"
+      :created-mongo-database="ddl.mongo?.deployed?.database ?? null"
+      :initial-store="ddl.store ?? 'sqlserver'"
     />
   </div>
 </template>

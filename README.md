@@ -8,8 +8,8 @@ atribucijom (svaki element vezan za tekst iz kog je nastao) i procenom sigurnost
 | 1. Tekst → PMER dijagram sa atribucijom | ✅ |
 | 2. PMER → ERLD (generisanje, izmena, provera sintakse) | ✅ |
 | 3. ERLD → DDL: SQL Server | ✅ |
-| 3. ERLD → DDL: MongoDB | ⏳ |
-| 4. ERLQ upiti nad fizičkim skladištem (SQL Server) | ✅ |
+| 3. ERLD → DDL: MongoDB | ✅ |
+| 4. ERLQ upiti nad fizičkim skladištem (SQL Server, MongoDB) | ✅ |
 
 ## Struktura
 
@@ -29,12 +29,15 @@ backend/                     .NET 10
     Diagram/                 ConvertToDiagram (PMER DER notacija)
     Erld/                    ErldGenerator (PMER model → ERLD kod)
     Sandbox/                 SandboxDatabase (LocalDB baza iz DDL-a), SampleDataGenerator (LLM probni podaci)
+    Mongo/                   MongoStore (baza, podaci, upiti na MongoDB-u), MongoSampleDataGenerator
   Texter.Erl/                ANTLR gramatike ERL jezika (Grammar/), generisani parser (Generated/), ErldSyntax
     Semantics/               ErldModelBuilder: ERLD → semantički model (razrešena imena i tipovi, kratki → dugi zapis,
                              greške i upozorenja sa redom i kolonom)
     Ddl/                     SqlServerDdlGenerator, SqlExpression (izrazi računa entiteta → T-SQL),
                              RelationalMap (gde je koji tip, atribut i veza u tabelama)
     Query/                   ErlqTranslator (ERLQ → T-SQL), ErlqExamples (primeri upita iz modela)
+    Mongo/                   MongoSchemaGenerator (kolekcije, $jsonSchema, indeksi), MongoMap,
+                             ErlqMongoTranslator (ERLQ → aggregation pipeline)
   Texter.Api/                POST /api/conceptualmodel/extract → { model, diagram, sentences, notes }
                              POST /api/erld/generate, /api/erld/validate → { code, errors }
                              POST /api/ddl/sqlserver { code } → { sql, errors, warnings }
@@ -107,6 +110,26 @@ njima), da se skript može ponovo izvršiti u istoj bazi. Dugme **Create databas
 (ako ne postoji) na serveru iz `appsettings.json` (sekcija `Deploy`, podrazumevano `(localdb)\MSSQLLocalDB`) i u
 njoj izvrši DDL, pa se baza odmah vidi u SSMS-u.
 
+## Korak 3: ERLD → MongoDB
+
+`MongoSchemaGenerator` pravi kolekcije sa `$jsonSchema` validatorima i jedinstvene indekse (mongosh skript, i
+direktno na serveru dugmetom **Create database**). Pravila (ugnježdavanje po vlasništvu):
+
+| ERLD | MongoDB |
+|---|---|
+| entitet, agregacija, kategorija | kolekcija; `_id` = ključ (složen ključ: objekat delova; bez ključa: surogat) |
+| slab entitet | niz ugnežđenih dokumenata u vlasniku; spolja se referencira sa `{ _owner, parcijalni ključ }` |
+| višeznačni / složeni atribut | niz vrednosti / ugnežđen objekat |
+| veza sa gornjom granicom 1 na jednoj strani | referenca (`_id` druge strane) na toj strani, kao FK u SQL-u; 1:1 jedinstven indeks |
+| veza M:N | niz referenci u domenu prvog preslikavanja |
+| agregacija | svoja kolekcija sa referencom na svakog učesnika (bez ključa `_id` je par) |
+| IS-A | jedna kolekcija hijerarhije, polje `tip` (disjoint) ili `je<Podtip>` (overlapping); `anyOf` u validatoru |
+| tipovi, dužine, enum, domen, between/poređenje/in/like | `$jsonSchema` (bsonType, maxLength, minimum/maximum, enum, pattern) |
+
+MongoDB nema strane ključeve, pa reference, donje granice, kaskade, `check` izrazi, izvedeni atributi i pravila
+idu u spisak "not checked by MongoDB". Server je u `appsettings.json` (sekcija `Mongo`, podrazumevano
+`mongodb://localhost:27017`; potreban MongoDB 6.0+, testiran 9.0).
+
 ## Korak 4: ERLQ upiti nad fizičkim skladištem
 
 ERLQ (`Texter.Erl/Grammar/ERLQ.g4`, deli izraze sa ERLD-om kroz `ERLCommon.g4`) piše upite nad entitetima,
@@ -139,6 +162,12 @@ tabele trenutnog modela; upit radi u transakciji koja se uvek poništava. Probne
 napravljenu od stvarnih tabela i kolona; red koji prekrši ograničenje baza odbije i on se prijavi. Bez ključa
 (`fake-llm`) koriste se snimljeni podaci za biblioteku (`Samples/fake/sample_data.json`). Server baze se menja u
 `appsettings.json` (sekcija `Sandbox`). ERLQ v0.1 ima samo upite; naredbe za izmenu podataka dolaze kasnije.
+
+Isti upit se može izvršiti i nad **MongoDB-om** (`ErlqMongoTranslator`, aggregation pipeline): opseg je kolekcija
+ili `$lookup` + `$unwind`, navigacija `$lookup` po referenci, kolekcije u `card`/`sum`/`exists`/`forall` su `$lookup`
+sa pod-pipeline-om (kao korelisani podupit), ugnežđeni nizovi ulaze kroz `$documents`, `group by` je `$group`,
+tekst upoređen sa datumom pretvara se u datum. Probne podatke i ovde piše LLM, uz JSON šemu izvedenu iz
+validatora; testovi izvršavaju iste upite nad istim podacima kao za SQL Server i porede rezultate.
 
 ## Pokretanje
 

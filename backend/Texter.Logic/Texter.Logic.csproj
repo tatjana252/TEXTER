@@ -9,6 +9,7 @@
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.1.2" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.0" />
+    <PackageReference Include="MongoDB.Driver" Version="3.14.1" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -20,6 +21,7 @@
   <ItemGroup>
     <EmbeddedResource Include="Extraction\Resources\**" />
     <EmbeddedResource Include="Sandbox\Resources\**" />
+    <EmbeddedResource Include="Mongo\Resources\**" />
   </ItemGroup>
 
   <ItemGroup>

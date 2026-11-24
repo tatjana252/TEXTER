@@ -18,6 +18,11 @@ namespace Texter.Api.Dto
         }
 
         private string? _database;
+
+        /// <summary>"sqlserver" (default) or "mongodb".</summary>
+        public string Store { get; set; } = "sqlserver";
+
+        public bool IsMongo => string.Equals(Store, "mongodb", StringComparison.OrdinalIgnoreCase);
     }
 
     public class ErlqSampleDataRequest : ErlqModelRequest

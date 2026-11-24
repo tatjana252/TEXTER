@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Texter.Logic.Extraction;
 using Texter.Logic.Llm;
+using Texter.Logic.Mongo;
 using Texter.Logic.Sandbox;
 using Texter.Logic.Traceability;
 
@@ -15,6 +16,7 @@ namespace Texter.Logic
             services.Configure<ConfidenceOptions>(configuration.GetSection(ConfidenceOptions.SectionName));
             services.Configure<SandboxOptions>(configuration.GetSection(SandboxOptions.SectionName));
             services.Configure<DeployOptions>(configuration.GetSection(DeployOptions.SectionName));
+            services.Configure<MongoOptions>(configuration.GetSection(MongoOptions.SectionName));
 
             var provider = configuration.GetSection(LlmOptions.SectionName)[nameof(LlmOptions.Provider)];
             if (string.Equals(provider, "Fake", StringComparison.OrdinalIgnoreCase))
@@ -27,6 +29,8 @@ namespace Texter.Logic
             services.AddScoped<IConceptualModelExtractor, LlmConceptualModelExtractor>();
             services.AddSingleton<SandboxDatabase>();
             services.AddSingleton<DatabaseDeployer>();
+            services.AddSingleton<MongoStore>();
+            services.AddScoped<MongoSampleDataGenerator>();
             services.AddScoped<SampleDataGenerator>();
             return services;
         }

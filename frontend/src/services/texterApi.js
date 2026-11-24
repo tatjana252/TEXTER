@@ -26,21 +26,27 @@ export const texterApi = {
   generateSqlServerDdl: (code, includeAttribution, dropExisting) =>
     post('/api/ddl/sqlserver', { code, includeAttribution, dropExisting }),
 
+  /** ERLD source -> MongoDB schema: { script, notEnforced, errors, warnings } */
+  generateMongoSchema: (code, dropExisting) => post('/api/ddl/mongodb', { code, dropExisting }),
+
+  /** Creates the MongoDB database's collections and indexes: { database, server, created, tables, error } */
+  deployMongoSchema: (code, database, dropExisting) => post('/api/ddl/mongodb/deploy', { code, database, dropExisting }),
+
   /** Creates the database (if needed) on SQL Server and runs the DDL: { database, server, created, tables, error } */
   deploySqlServerDdl: (code, database, includeAttribution, dropExisting) =>
     post('/api/ddl/deploy', { code, database, includeAttribution, dropExisting }),
 
-  // Step 4. database: the one created in step 3, or null for a temporary database built from the DDL.
+  // Step 4. store: 'sqlserver' or 'mongodb'; database: the one created in step 3, or null for a temporary one.
 
   /** The database to query: { server, database, tables: [{ name, rows }], examples } */
-  erlqDatabase: (code, database) => post('/api/erlq/database', { code, database }),
+  erlqDatabase: (code, store, database) => post('/api/erlq/database', { code, store, database }),
 
-  /** LLM sample data loaded into the database (replacing its rows): { tables, rejected } */
-  erlqSampleData: (code, requirements, database) => post('/api/erlq/sample-data', { code, requirements, database }),
+  /** LLM sample data loaded into the database (replacing its rows / documents): { tables, rejected } */
+  erlqSampleData: (code, store, requirements, database) => post('/api/erlq/sample-data', { code, store, requirements, database }),
 
-  /** ERLQ query -> { sql, columns, rows, truncated, errors, executionError } */
-  erlqRun: (code, query, database) => post('/api/erlq/run', { code, query, database }),
+  /** ERLQ query -> { sql (T-SQL or the pipeline), columns, rows, truncated, errors, executionError } */
+  erlqRun: (code, store, query, database) => post('/api/erlq/run', { code, store, query, database }),
 
-  /** Rows of one table: { columns, rows, truncated } */
-  erlqTable: (code, table, database) => post('/api/erlq/table', { code, table, database })
+  /** Rows of one table / documents of one collection: { columns, rows, truncated } */
+  erlqTable: (code, store, table, database) => post('/api/erlq/table', { code, store, table, database })
 }
