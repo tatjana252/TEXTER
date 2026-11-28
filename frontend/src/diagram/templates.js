@@ -63,11 +63,17 @@ function attributeNode(events) {
   )
 }
 
-/** IS-A (generalization / specialization). */
+/**
+ * Specialization (PMER): a small diamond with S, its cardinality (min, max) on the left.
+ * The node is located by the diamond, and links connect to it.
+ */
 function generalizationNode(events) {
-  return new go.Node('Auto', hoverEvents(events)).add(
-    confidenceFill(new go.Shape('Triangle', { strokeWidth: 2, minSize: new go.Size(56, 40) })),
-    new go.TextBlock('IS-A', { margin: new go.Margin(14, 4, 2, 4), font: 'bold 11px "Segoe UI", system-ui, sans-serif' })
+  return new go.Node('Horizontal', { ...hoverEvents(events), locationObjectName: 'DIAMOND', locationSpot: go.Spot.Center }).add(
+    new go.TextBlock({ margin: new go.Margin(0, 6, 0, 0), font: SMALL, stroke: '#333' }).bind('text', 'type'),
+    new go.Panel('Auto', { name: 'DIAMOND', portId: '' }).add(
+      confidenceFill(new go.Shape('Diamond', { strokeWidth: 2, width: 34, height: 34 })),
+      new go.TextBlock('S', { font: 'bold 12px "Segoe UI", system-ui, sans-serif', stroke: '#222' })
+    )
   )
 }
 
@@ -158,6 +164,10 @@ export function linkTemplates(events) {
   const identifying = new go.Link({
     selectable: false,
     layerName: 'Background',
+    routing: go.Routing.Orthogonal,
+    corner: 0,
+    fromSpot: go.Spot.Bottom,
+    toSpot: go.Spot.Top,
     cursor: 'pointer',
     mouseEnter: (e, link) => events.onHover(identifyingDetails(link)),
     mouseLeave: () => events.onHover(null)
@@ -165,7 +175,8 @@ export function linkTemplates(events) {
     new go.Shape({ isPanelMain: true, stroke: LINE, strokeWidth: 1.5 }),
     new go.Shape({ isPanelMain: true, stroke: 'transparent', strokeWidth: 10 }),
     new go.Shape({ toArrow: 'Triangle', scale: 1.1, stroke: LINE, fill: LINE }),
-    new go.Panel('Vertical', { segmentIndex: 0, segmentFraction: 0.3, segmentOffset: new go.Point(0, -14), background: 'transparent' }).add(
+    // The owner's bounds beside the arrow, as in PMER.
+    new go.Panel('Vertical', { segmentIndex: NaN, segmentFraction: 0.5, alignmentFocus: go.Spot.Left, segmentOffset: new go.Point(-6, -10), segmentOrientation: go.Orientation.None, background: 'transparent' }).add(
       new go.TextBlock({ font: 'bold 13px "Segoe UI", system-ui, sans-serif' })
         .bind('text', '', (d) => (d.isAssumed ? `${d.text}?` : d.text))
         .bind('stroke', 'isAssumed', (a) => (a ? ASSUMED : '#333')),
@@ -178,12 +189,80 @@ export function linkTemplates(events) {
   const plain = (width) =>
     new go.Link({ selectable: false, layerName: 'Background' }).add(new go.Shape({ stroke: LINE, strokeWidth: width }))
 
+  // Supertype -> S -> subtypes: orthogonal, top-down; the lines to the subtypes end in arrows.
+  const topDown = (arrow) =>
+    new go.Link({
+      selectable: false,
+      layerName: 'Background',
+      routing: go.Routing.Orthogonal,
+      corner: 0,
+      fromSpot: go.Spot.Bottom,
+      toSpot: go.Spot.Top
+    }).add(
+      new go.Shape({ stroke: LINE, strokeWidth: 1.5 }),
+      ...(arrow ? [new go.Shape({ toArrow: 'Triangle', scale: 1.1, stroke: LINE, fill: LINE })] : [])
+    )
+
   return new go.Map([
     ['mapping', mapping],
     ['identifying', identifying],
     ['attribute', plain(1.2)],
-    ['generalization', plain(1.5)]
+    ['generalization', topDown(false)],
+    ['specialization', topDown(true)]
   ])
+}
+
+const SPECIALIZATION_GAP = 55
+const SUBTYPE_GAP = 40
+
+/** Moves a node and the attributes it owns. */
+function moveWithAttributes(node, x, y) {
+  const dx = x - node.actualBounds.x
+  const dy = y - node.actualBounds.y
+  node.moveTo(node.position.x + dx, node.position.y + dy)
+  node.findLinksOutOf().each((l) => {
+    if (l.category === 'attribute' && l.toNode) l.toNode.moveTo(l.toNode.position.x + dx, l.toNode.position.y + dy)
+  })
+}
+
+const WEAK_GAP = 80
+
+/** Each weak entity under its owner, so the identifying arrow points down. */
+function arrangeWeakEntities(diagram) {
+  diagram.links.each((l) => {
+    if (l.category !== 'identifying' || !l.fromNode || !l.toNode) return
+    const owner = l.fromNode.actualBounds
+    const weak = l.toNode.actualBounds
+    moveWithAttributes(l.toNode, owner.centerX - weak.width / 2, owner.bottom + WEAK_GAP)
+  })
+}
+
+/**
+ * Draws each specialization top-down, as in PMER: the S diamond under its supertype,
+ * the subtypes side by side under the diamond. A moved subtype takes its attributes with it.
+ */
+function arrangeSpecializations(diagram) {
+  diagram.nodes.each((s) => {
+    if (s.category !== 'generalization') return
+    const into = s.findLinksInto().first()
+    const parent = into?.fromNode
+    if (!parent) return
+    const subs = []
+    s.findLinksOutOf().each((l) => l.toNode && subs.push(l.toNode))
+
+    const top = parent.actualBounds
+    const cx = top.centerX
+    const diamondY = top.bottom + SPECIALIZATION_GAP
+    s.moveTo(s.position.x + (cx - s.location.x), s.position.y + (diamondY - s.location.y))
+
+    const width = subs.reduce((w, n) => w + n.actualBounds.width, 0) + SUBTYPE_GAP * (subs.length - 1)
+    let x = cx - width / 2
+    const y = diamondY + 17 + SPECIALIZATION_GAP
+    for (const sub of subs) {
+      moveWithAttributes(sub, x, y)
+      x += sub.actualBounds.width + SUBTYPE_GAP
+    }
+  })
 }
 
 /** Force-directed layout with short springs for attributes, so they cluster around their owner. */
@@ -194,5 +273,11 @@ export class DerLayout extends go.ForceDirectedLayout {
 
   springLength(edge) {
     return edge.link?.category === 'attribute' ? 20 : 70
+  }
+
+  commitLayout() {
+    super.commitLayout()
+    arrangeWeakEntities(this.diagram)
+    arrangeSpecializations(this.diagram)
   }
 }

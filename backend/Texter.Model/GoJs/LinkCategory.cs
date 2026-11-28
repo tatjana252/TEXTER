@@ -7,6 +7,9 @@ namespace Texter.Model.GoJs
         public const string Mapping = "mapping";
         public const string Generalization = "generalization";
 
+        /// <summary>Specialization S -> subtype: an arrow to the subtype.</summary>
+        public const string Specialization = "specialization";
+
         /// <summary>Identifying relationship: an arrow from the owner to its weak entity (PMER notation, no diamond).</summary>
         public const string Identifying = "identifying";
     }

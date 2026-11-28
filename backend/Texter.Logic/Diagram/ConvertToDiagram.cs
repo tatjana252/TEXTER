@@ -61,10 +61,13 @@ namespace Texter.Logic.Diagram
 
             foreach (var generalization in model.Generalizations)
             {
-                result.Nodes.Add(NodeFor(generalization, NodeCategory.Generalization));
+                // PMER specialization: (min, max) subtypes per supertype instance - total => 1, disjoint => 1.
+                var node = NodeFor(generalization, NodeCategory.Generalization);
+                node.Type = $"({(generalization.IsTotal ? "1" : "0")}, {(generalization.IsDisjoint ? "1" : "M")})";
+                result.Nodes.Add(node);
                 result.Links.Add(new Link { From = generalization.SuperEntityId, To = generalization.Id, Category = LinkCategory.Generalization });
                 foreach (var subId in generalization.SubEntityIds)
-                    result.Links.Add(new Link { From = generalization.Id, To = subId, Category = LinkCategory.Generalization });
+                    result.Links.Add(new Link { From = generalization.Id, To = subId, Category = LinkCategory.Specialization });
             }
 
             return result;
