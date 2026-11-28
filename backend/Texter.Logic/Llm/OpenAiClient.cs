@@ -49,7 +49,17 @@ namespace Texter.Logic.Llm
             if (!string.IsNullOrWhiteSpace(_options.ReasoningEffort))
                 body["reasoning_effort"] = _options.ReasoningEffort;
 
-            using var response = await _http.PostAsJsonAsync("chat/completions", body, cancellationToken);
+            HttpResponseMessage posted;
+            try
+            {
+                posted = await _http.PostAsJsonAsync("chat/completions", body, cancellationToken);
+            }
+            catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                throw new LlmException($"The model did not answer within {_options.TimeoutSeconds} s. " +
+                    "Try a shorter text, or raise Llm:TimeoutSeconds (or lower Llm:ReasoningEffort).");
+            }
+            using var response = posted;
             var content = await response.Content.ReadAsStringAsync(cancellationToken);
             if (!response.IsSuccessStatusCode)
                 throw new LlmException($"OpenAI returned {(int)response.StatusCode}: {content}");

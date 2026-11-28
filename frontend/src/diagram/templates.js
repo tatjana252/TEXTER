@@ -228,12 +228,13 @@ function moveWithAttributes(node, x, y) {
 const WEAK_GAP = 80
 
 /** Each weak entity under its owner, so the identifying arrow points down. */
-function arrangeWeakEntities(diagram) {
+function arrangeWeakEntities(diagram, placed) {
   diagram.links.each((l) => {
     if (l.category !== 'identifying' || !l.fromNode || !l.toNode) return
     const owner = l.fromNode.actualBounds
     const weak = l.toNode.actualBounds
     moveWithAttributes(l.toNode, owner.centerX - weak.width / 2, owner.bottom + WEAK_GAP)
+    placed.add(l.fromNode).add(l.toNode)
   })
 }
 
@@ -241,12 +242,26 @@ function arrangeWeakEntities(diagram) {
  * Draws each specialization top-down, as in PMER: the S diamond under its supertype,
  * the subtypes side by side under the diamond. A moved subtype takes its attributes with it.
  */
-function arrangeSpecializations(diagram) {
-  diagram.nodes.each((s) => {
-    if (s.category !== 'generalization') return
+function arrangeSpecializations(diagram, placed) {
+  // Top-down: a subtype that is itself a supertype is placed before its own subtypes.
+  const parentOf = (s) => s.findLinksInto().first()?.fromNode
+  const depth = (s) => {
+    let d = 0
+    for (let n = parentOf(s); n && d < 20; d++) {
+      const above = n.findLinksInto().filter((l) => l.category === 'specialization').first()?.fromNode
+      if (!above) break
+      n = parentOf(above)
+    }
+    return d
+  }
+  const specializations = []
+  diagram.nodes.each((s) => s.category === 'generalization' && specializations.push(s))
+  specializations.sort((a, b) => depth(a) - depth(b))
+
+  for (const s of specializations) {
     const into = s.findLinksInto().first()
     const parent = into?.fromNode
-    if (!parent) return
+    if (!parent) continue
     const subs = []
     s.findLinksOutOf().each((l) => l.toNode && subs.push(l.toNode))
 
@@ -254,30 +269,50 @@ function arrangeSpecializations(diagram) {
     const cx = top.centerX
     const diamondY = top.bottom + SPECIALIZATION_GAP
     s.moveTo(s.position.x + (cx - s.location.x), s.position.y + (diamondY - s.location.y))
+    placed.add(parent).add(s)
 
     const width = subs.reduce((w, n) => w + n.actualBounds.width, 0) + SUBTYPE_GAP * (subs.length - 1)
     let x = cx - width / 2
     const y = diamondY + 17 + SPECIALIZATION_GAP
     for (const sub of subs) {
       moveWithAttributes(sub, x, y)
+      placed.add(sub)
       x += sub.actualBounds.width + SUBTYPE_GAP
     }
-  })
+  }
 }
 
-/** Force-directed layout with short springs for attributes, so they cluster around their owner. */
+/**
+ * Force-directed layout with short springs for attributes, so they cluster around their owner.
+ * Hierarchies (weak entities, specializations) are then drawn top-down, and a second pass with
+ * those nodes fixed moves the rest of the diagram out of their way.
+ */
 export class DerLayout extends go.ForceDirectedLayout {
   constructor() {
-    super({ maxIterations: 800, defaultElectricalCharge: 120 })
+    super({ maxIterations: 800, defaultElectricalCharge: 160 })
+    this.placed = null
   }
 
   springLength(edge) {
-    return edge.link?.category === 'attribute' ? 20 : 70
+    return edge.link?.category === 'attribute' ? 20 : 80
   }
 
-  commitLayout() {
-    super.commitLayout()
-    arrangeWeakEntities(this.diagram)
-    arrangeSpecializations(this.diagram)
+  isFixed(v) {
+    return (this.placed !== null && v.node !== null && this.placed.has(v.node)) || super.isFixed(v)
+  }
+
+  doLayout(coll) {
+    this.placed = null
+    super.doLayout(coll)
+    const placed = new Set()
+    arrangeWeakEntities(this.diagram, placed)
+    arrangeSpecializations(this.diagram, placed)
+    if (placed.size === 0) return
+    this.placed = placed
+    try {
+      super.doLayout(coll)
+    } finally {
+      this.placed = null
+    }
   }
 }

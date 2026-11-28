@@ -14,7 +14,7 @@ namespace Texter.Logic.Llm
         /// <summary>Optional: minimal / low / medium / high. Empty = provider default.</summary>
         public string? ReasoningEffort { get; set; }
 
-        public int TimeoutSeconds { get; set; } = 180;
+        public int TimeoutSeconds { get; set; } = 480;
 
         /// <summary>Folder with canned answers for the Fake provider, one file per schema: {SchemaName}.json.</summary>
         public string FakeResponsesDir { get; set; } = "Samples/fake";
